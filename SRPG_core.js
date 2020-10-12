@@ -142,6 +142,16 @@
  * @type boolean
  * @default false
  *
+ 	* @param ActorHomeX
+ * @desc This formula determines the actor's home X position in SRPG mode
+ * YEP Default: screenWidth - 16 - (maxSize + 2) * 32 + index * 32
+ * @default Graphics.width - 216 - index * 240
+ *
+ * @param ActorHomeY
+ * @desc This formula determines the actor's home Y position in SRPG mode
+ * YEP Default: screenHeight - statusHeight - maxSize * 48 + (index+1) * 48 - 32
+ * @default Graphics.height / 2 + 48 
+ *
  * @param Use Map Battle
  * @desc Default Map Battle usage
  * @type select
@@ -574,7 +584,17 @@
  * @desc YEP_BattleEngineCoreと併用する場合はtrueに設定してください。
  * @type boolean
  * @default false
- * 
+ *
+ * @param ActorHomeX
+ * @desc アクタースプライトの基準位置
+ * YEP Default: screenWidth - 16 - (maxSize + 2) * 32 + index * 32
+ * @default Graphics.width - 216 - index * 240
+ *
+ * @param ActorHomeY
+ * @desc アクタースプライトの基準位置
+ * YEP Default: screenHeight - statusHeight - maxSize * 48 + (index+1) * 48 - 32
+ * @default Graphics.height / 2 + 48 
+ *
  * @param Use Map Battle
  * @desc マップバトルを使用するかどうか
  * @type select
@@ -913,7 +933,10 @@
     var _srpgUseAgiAttackPlus = parameters['useAgiAttackPlus'] || 'true';
     var _srpgAgilityAffectsRatio = Number(parameters['srpgAgilityAffectsRatio'] || 2);
     var _AAPwithYEP_BattleEngineCore = parameters['WithYEP_BattleEngineCore'] || 'false';
-
+    var index = 0 ; // dopan info -> this is needed for boomys next edit
+    var _actorHomeX = parameters['ActorHomeX'] || Graphics.width - 216 - index * 240; //boomys edit
+    var _actorHomeY = parameters['ActorHomeY'] || Graphics.height / 2 + 48;  //boomys edit
+	
     var _Game_Interpreter_pluginCommand =
             Game_Interpreter.prototype.pluginCommand;
     Game_Interpreter.prototype.pluginCommand = function(command, args) {
@@ -2162,6 +2185,12 @@
             this.removeBuffsAuto();
             this.clearResult();
             this.setSrpgTurnEnd(false);
+	    //Buff & States Core Fix
+	    if(Imported.YEP_BuffsStatesCore !== undefined) {
+	        if(Imported.YEP_BuffsStatesCore) {
+		    if (this.meetTurnEndStateEffectsConditions()) this.onTurnEndStateEffects();
+		}
+	    }		
         } else {
             return _SRPG_Game_Battler_onTurnEnd.call(this);
         }
@@ -3748,7 +3777,8 @@ Game_Interpreter.prototype.unitAddState = function(eventId, stateId) {
     var _SRPG_Sprite_Actor_setActorHome = Sprite_Actor.prototype.setActorHome;
     Sprite_Actor.prototype.setActorHome = function(index) {
         if ($gameSystem.isSRPGMode() == true) {
-            this.setHome(Graphics.width - 216 - index * 240, Graphics.height / 2 + 48);
+                this.setHome(eval(_actorHomeX), eval(_actorHomeY));
+		//this.setHome(Graphics.width - 216 - index * 240, Graphics.height / 2 + 48);
         } else {
             _SRPG_Sprite_Actor_setActorHome.call(this, index);
         }
@@ -6446,11 +6476,15 @@ Window_WinLoseCondition.prototype.refresh = function() {
             this._logWindow.push('pushBaseLine');
             if (Math.random() < this._action.itemCnt(target)) {
                 var attackSkill = $dataSkills[target.attackSkillId()];
-                if (target.canUse(attackSkill) == true) {
-                    this.invokeCounterAttack(subject, target);
-                } else {
-                    this.invokeNormalAction(subject, target);
-                }
+                if ($gameSystem.isSRPGMode() == true) {
+		    if (target.canUse(attackSkill) == true) {
+                        this.invokeCounterAttack(subject, target);
+                    } else {
+                        this.invokeNormalAction(subject, target);
+                    }
+		} else {
+		    this.invokeCounterAttack(subject, target);	
+		}
             } else if (Math.random() < this._action.itemMrf(target)) {
                 this.invokeMagicReflection(subject, target);
             } else {
