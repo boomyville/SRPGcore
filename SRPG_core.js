@@ -142,6 +142,16 @@
  * @type boolean
  * @default false
  *
+ * @param ActorHomeX
+ * @desc This formula determines the actor's home X position in SRPG mode
+ * YEP Default: screenWidth - 16 - (maxSize + 2) * 32 + index * 32
+ * @default Graphics.width - 216 - index * 240
+ *
+ * @param ActorHomeY
+ * @desc This formula determines the actor's home Y position in SRPG mode
+ * YEP Default: screenHeight - statusHeight - maxSize * 48 + (index+1) * 48 - 32
+ * @default Graphics.height / 2 + 48 
+ *
  * @param Use Map Battle
  * @desc Default Map Battle usage
  * @type select
@@ -574,7 +584,17 @@
  * @desc YEP_BattleEngineCoreと併用する場合はtrueに設定してください。
  * @type boolean
  * @default false
- * 
+ *
+ * @param ActorHomeX
+ * @desc アクタースプライトの基準位置
+ * YEP Default: screenWidth - 16 - (maxSize + 2) * 32 + index * 32
+ * @default Graphics.width - 216 - index * 240
+ *
+ * @param ActorHomeY
+ * @desc アクタースプライトの基準位置
+ * YEP Default: screenHeight - statusHeight - maxSize * 48 + (index+1) * 48 - 32
+ * @default Graphics.height / 2 + 48 
+ *
  * @param Use Map Battle
  * @desc マップバトルを使用するかどうか
  * @type select
@@ -865,7 +885,6 @@
  * srpgAgilityAffectsRatio : 3 → 敏捷性が3倍以上なら100%発生します。
  *  1.5倍なら25%、2倍なら50%です。
  */
-
 (function() {
 
     var parameters = PluginManager.parameters('SRPG_core');
@@ -913,49 +932,52 @@
     var _srpgUseAgiAttackPlus = parameters['useAgiAttackPlus'] || 'true';
     var _srpgAgilityAffectsRatio = Number(parameters['srpgAgilityAffectsRatio'] || 2);
     var _AAPwithYEP_BattleEngineCore = parameters['WithYEP_BattleEngineCore'] || 'false';
+    var index = 0; // dopan info -> this is needed for boomys next edit
+    var _actorHomeX = parameters['ActorHomeX'] || Graphics.width - 216 - index * 240; //boomys edit
+    var _actorHomeY = parameters['ActorHomeY'] || Graphics.height / 2 + 48; //boomys edit
 
     var _Game_Interpreter_pluginCommand =
-            Game_Interpreter.prototype.pluginCommand;
+        Game_Interpreter.prototype.pluginCommand;
     Game_Interpreter.prototype.pluginCommand = function(command, args) {
         _Game_Interpreter_pluginCommand.call(this, command, args);
         if (command === 'SRPGBattle') {
             switch (args[0]) {
-            case 'Start':
-                $gameSystem.startSRPG();
-                break;
-            case 'End':
-                $gameSystem.endSRPG();
-                break;
+                case 'Start':
+                    $gameSystem.startSRPG();
+                    break;
+                case 'End':
+                    $gameSystem.endSRPG();
+                    break;
             }
         }
     };
 
-//====================================================================
-// ●Game_Temp
-//====================================================================
+    //====================================================================
+    // ●Game_Temp
+    //====================================================================
     //初期化処理
     var _SRPG_Game_Temp_initialize = Game_Temp.prototype.initialize;
     Game_Temp.prototype.initialize = function() {
-    _SRPG_Game_Temp_initialize.call(this);
-    this._MoveTable = [];
-    this._MoveList = [];
-    this._RangeTable = [];
-    this._RangeList = [];
-    this._ResetMoveList = false;
-    this._SrpgDistance = 0;
-    this._ActiveEvent = null;
-    this._TargetEvent = null;
-    this._OriginalPos = [];
-    this._SrpgEventList = [];
-    this._autoMoveDestinationValid = false;
-    this._autoMoveDestinationX = -1;
-    this._autoMoveDestinationY = -1;
-    this._srpgLoadFlag = false;
-    this._srpgActorEquipFlag = false;
-    this._SrpgTurnEndFlag = false;
-    this._srpgBestSearchFlag = false;
-    this._srpgBestSearchRoute = [null, [], ''];
-    this._srpgPriorityTarget = null;
+        _SRPG_Game_Temp_initialize.call(this);
+        this._MoveTable = [];
+        this._MoveList = [];
+        this._RangeTable = [];
+        this._RangeList = [];
+        this._ResetMoveList = false;
+        this._SrpgDistance = 0;
+        this._ActiveEvent = null;
+        this._TargetEvent = null;
+        this._OriginalPos = [];
+        this._SrpgEventList = [];
+        this._autoMoveDestinationValid = false;
+        this._autoMoveDestinationX = -1;
+        this._autoMoveDestinationY = -1;
+        this._srpgLoadFlag = false;
+        this._srpgActorEquipFlag = false;
+        this._SrpgTurnEndFlag = false;
+        this._srpgBestSearchFlag = false;
+        this._srpgBestSearchRoute = [null, [], ''];
+        this._srpgPriorityTarget = null;
     };
 
     //移動範囲と移動経路を記録する配列変数を返す
@@ -1028,20 +1050,20 @@
         this._MoveTable = [];
         this._MoveList = [];
         for (var i = 0; i < $dataMap.width; i++) {
-          var vartical = [];
-          for (var j = 0; j < $dataMap.height; j++) {
-            vartical[j] = [-1, []];
-          }
-          this._MoveTable[i] = vartical;
+            var vartical = [];
+            for (var j = 0; j < $dataMap.height; j++) {
+                vartical[j] = [-1, []];
+            }
+            this._MoveTable[i] = vartical;
         }
         this._RangeTable = [];
         this._RangeList = [];
         for (var i = 0; i < $dataMap.width; i++) {
-          var vartical = [];
-          for (var j = 0; j < $dataMap.height; j++) {
-            vartical[j] = [-1, []];
-          }
-          this._RangeTable[i] = vartical;
+            var vartical = [];
+            for (var j = 0; j < $dataMap.height; j++) {
+                vartical[j] = [-1, []];
+            }
+            this._RangeTable[i] = vartical;
         }
     };
 
@@ -1232,10 +1254,10 @@
         this._srpgPriorityTarget = event;
     };
 
-//====================================================================
-// ●Game_System
-//====================================================================
-//初期化処理
+    //====================================================================
+    // ●Game_System
+    //====================================================================
+    //初期化処理
     var _SRPG_Game_System_initialize = Game_System.prototype.initialize;
     Game_System.prototype.initialize = function() {
         _SRPG_Game_System_initialize.call(this);
@@ -1254,7 +1276,7 @@
         this._winLoseCondition = [];
     };
 
-//変数関係の処理
+    //変数関係の処理
     //戦闘中かどうかのフラグを返す
     Game_System.prototype.isSRPGMode = function() {
         return this._SRPGMode;
@@ -1430,7 +1452,7 @@
             this._searchedItemList = [];
         }
         var flag = -1;
-        for (var i=0; i < this._searchedItemList.length; i++) {
+        for (var i = 0; i < this._searchedItemList.length; i++) {
             var xy2 = this._searchedItemList[i];
             if (xy[0] === xy2[0] && xy[1] === xy2[1]) {
                 flag = i;
@@ -1444,7 +1466,7 @@
         this._searchedItemList = [];
     };
 
-//戦闘開始に関係する処理
+    //戦闘開始に関係する処理
     //戦闘開始するためのプラグイン・コマンド
     Game_System.prototype.startSRPG = function() {
         this._SRPGMode = true;
@@ -1457,11 +1479,11 @@
         this.setAllEventType(); //イベントタイプの設定
         this.setSrpgActors(); //アクターデータの作成
         this.setSrpgEnemys(); //エネミーデータの作成
-        $gameMap.setEventImages();   // ユニットデータに合わせてイベントのグラフィックを変更する
+        $gameMap.setEventImages(); // ユニットデータに合わせてイベントのグラフィックを変更する
         this.runBattleStartEvent(); // ゲーム開始時の自動イベントを実行する
         $gameVariables.setValue(_turnVarID, 1); //ターン数を初期化する
         $gameSystem.resetSearchedItemList(); //探索済み座標を初期化する
-        this.srpgStartActorTurn();//アクターターンを開始する
+        this.srpgStartActorTurn(); //アクターターンを開始する
     };
 
     //イベントＩＤに対応するアクター・エネミーデータを初期化する
@@ -1533,7 +1555,7 @@
         var actorNum = 0;
         $gameMap.events().forEach(function(event) {
             if (event.isType() === 'actor' && !event.isErased()) {
-                if (_maxActorVarID > 0 && $gameVariables.value(_maxActorVarID) > 0 && 
+                if (_maxActorVarID > 0 && $gameVariables.value(_maxActorVarID) > 0 &&
                     actorNum >= $gameVariables.value(_maxActorVarID)) {
                     event.erase();
                     return;
@@ -1542,7 +1564,7 @@
                 if (actorId > 0) {
                     var actor_unit = $gameActors.actor(actorId);
                 } else {
-                    for (var j=0; j < array.length; j++) {
+                    for (var j = 0; j < array.length; j++) {
                         var actor_unit = array[i];
                         if (!actor_unit) {
                             $gameSystem.setEventToUnit(event.eventId(), 'null', null);
@@ -1589,6 +1611,12 @@
                             enemy_unit.setTargetId(Number(event.event().meta.targetId));
                         }
                     }
+
+                    //Edit: Grab event notetag and set level
+                    if (event.event().meta.srpgLevel !== undefined && Yanfly.ELV) {
+                        enemy_unit.changeLevel(eval(event.event().meta.srpgLevel));
+                    }
+
                     enemy_unit.initTp(); //TPを初期化
                     var faceName = enemy_unit.enemy().meta.faceName; //顔グラフィックをプリロードする
                     if (faceName) {
@@ -1625,7 +1653,7 @@
         return minDisX + minDisY;
     };
 
-//戦闘終了に関係する処理
+    //戦闘終了に関係する処理
     //戦闘終了するためのプラグイン・コマンド
     Game_System.prototype.endSRPG = function() {
         $gameTemp.clearActiveEvent();
@@ -1644,10 +1672,10 @@
         this._isSubBattlePhase = 'initialize';
         $gamePlayer.refresh();
         this.clearData(); //データの初期化
-        $gameMap.setEventImages();   // ユニットデータに合わせてイベントのグラフィックを変更する
+        $gameMap.setEventImages(); // ユニットデータに合わせてイベントのグラフィックを変更する
     };
 
-//戦闘の進行に関係する処理
+    //戦闘の進行に関係する処理
     // 戦闘開始時のイベントを起動する
     Game_System.prototype.runBattleStartEvent = function() {
         $gameMap.events().forEach(function(event) {
@@ -1757,7 +1785,7 @@
             }
         });
         this.srpgTurnPlus();
-        this.srpgStartActorTurn();//アクターターンを開始する
+        this.srpgStartActorTurn(); //アクターターンを開始する
     };
 
     //ターン数を増やす
@@ -1766,7 +1794,7 @@
         $gameVariables.setValue(_turnVarID, oldValue + 1);
     };
 
-//戦闘の計算に関係する処理
+    //戦闘の計算に関係する処理
     // 移動範囲および攻撃範囲を計算・表示する
     Game_System.prototype.srpgMakeMoveTable = function(event) {
         var battlerArray = $gameSystem.EventToUnit(event.eventId());
@@ -1813,9 +1841,9 @@
         return flag;
     };
 
-//==================================================================
-// ●Game_Action
-//====================================================================
+    //==================================================================
+    // ●Game_Action
+    //====================================================================
     // 予想ダメージの計算
     Game_Action.prototype.srpgPredictionDamage = function(target) {
         var item = this.item();
@@ -1843,21 +1871,21 @@
     // エネミーアクションのインデックスを設定する
     Game_Action.prototype.srpgPredictionItemEffect = function(target, effect) {
         switch (effect.code) {
-        case Game_Action.EFFECT_RECOVER_HP:
-            var value = (target.mhp * effect.value1 + effect.value2) * target.rec;
-            if (this.isItem()) {
-                value *= this.subject().pha;
-            }
-            return Math.floor(value);
-        case Game_Action.EFFECT_RECOVER_MP:
-            var value = (target.mmp * effect.value1 + effect.value2) * target.rec;
-            if (this.isItem()) {
-                value *= this.subject().pha;
-            }
-            return Math.floor(value);
-        case Game_Action.EFFECT_GAIN_TP:
-            var value = Math.floor(effect.value1);
-            return Math.floor(value);
+            case Game_Action.EFFECT_RECOVER_HP:
+                var value = (target.mhp * effect.value1 + effect.value2) * target.rec;
+                if (this.isItem()) {
+                    value *= this.subject().pha;
+                }
+                return Math.floor(value);
+            case Game_Action.EFFECT_RECOVER_MP:
+                var value = (target.mmp * effect.value1 + effect.value2) * target.rec;
+                if (this.isItem()) {
+                    value *= this.subject().pha;
+                }
+                return Math.floor(value);
+            case Game_Action.EFFECT_GAIN_TP:
+                var value = Math.floor(effect.value1);
+                return Math.floor(value);
         }
         return 0;
     };
@@ -1873,9 +1901,9 @@
     Game_Action.prototype.confusionTarget = function() {
         if ($gameSystem.isSRPGMode() == true) {
             if (this._targetIndex == 0) {
-                 return this.opponentsUnit().smoothTarget(this._targetIndex);
+                return this.opponentsUnit().smoothTarget(this._targetIndex);
             } else {
-                 return this.friendsUnit().smoothTarget(this._targetIndex);
+                return this.friendsUnit().smoothTarget(this._targetIndex);
             }
         } else {
             _SRPG_Game_Action_confusionTarget.call(this);
@@ -1883,9 +1911,9 @@
     };
 
 
-//==================================================================
-// ●Game_BattlerBase
-//====================================================================
+    //==================================================================
+    // ●Game_BattlerBase
+    //====================================================================
     // 初期処理
     var _SRPG_Game_BattlerBase_initMembers = Game_BattlerBase.prototype.initMembers;
     Game_BattlerBase.prototype.initMembers = function() {
@@ -1954,7 +1982,7 @@
     Game_BattlerBase.prototype.canInput = function() {
         if ($gameSystem.isSRPGMode() == true) {
             return this.isAppeared() && !this.isRestricted() && !this.isAutoBattle() &&
-                   !this.srpgTurnEnd();
+                !this.srpgTurnEnd();
         } else {
             return _SRPG_Game_BattlerBase_canInput.call(this);
         }
@@ -1982,20 +2010,20 @@
             if (!item) {
                 return false;
             }
-            if ($gameSystem.isBattlePhase() === 'actor_phase' && 
+            if ($gameSystem.isBattlePhase() === 'actor_phase' &&
                 $gameSystem.isSubBattlePhase() === 'normal') {
                 return false;
             }
             if (($gameSystem.isSubBattlePhase() === 'invoke_action' ||
-                 $gameSystem.isSubBattlePhase() === 'auto_actor_action' ||
-                 $gameSystem.isSubBattlePhase() === 'enemy_action' ||
-                 $gameSystem.isSubBattlePhase() === 'battle_window') &&
+                    $gameSystem.isSubBattlePhase() === 'auto_actor_action' ||
+                    $gameSystem.isSubBattlePhase() === 'enemy_action' ||
+                    $gameSystem.isSubBattlePhase() === 'battle_window') &&
                 (this.srpgSkillRange(item) < $gameTemp.SrpgDistance() ||
-                this.srpgSkillMinRange(item) > $gameTemp.SrpgDistance() ||
-                this.SrpgSpecialRange(item) == false ||
-                (this._srpgActionTiming == 1 && this.srpgWeaponCounter() == false) ||
-                (item.meta.notUseAfterMove && ($gameTemp.originalPos()[0] != $gameTemp.activeEvent().posX() ||
-                 $gameTemp.originalPos()[1] != $gameTemp.activeEvent().posY()))
+                    this.srpgSkillMinRange(item) > $gameTemp.SrpgDistance() ||
+                    this.SrpgSpecialRange(item) == false ||
+                    (this._srpgActionTiming == 1 && this.srpgWeaponCounter() == false) ||
+                    (item.meta.notUseAfterMove && ($gameTemp.originalPos()[0] != $gameTemp.activeEvent().posX() ||
+                        $gameTemp.originalPos()[1] != $gameTemp.activeEvent().posY()))
                 )) {
                 return false;
             }
@@ -2014,37 +2042,37 @@
         }, this);
     };
 
-/*
-    // 「隠れ」時に存在するユニット数を減らす
-    var _SRPG_Game_BattlerBase_hide = Game_BattlerBase.prototype.hide;
-    Game_BattlerBase.prototype.hide = function() {
-        _SRPG_Game_BattlerBase_hide.call(this);
-        if (this.isActor()) {
-            var oldValue = $gameVariables.value(_existActorVarID);
-            $gameVariables.setValue(_existActorVarID, oldValue - 1);
-        } else {
-            var oldValue = $gameVariables.value(_existEnemyVarID);
-            $gameVariables.setValue(_existEnemyVarID, oldValue - 1);
-        }
-    };
+    /*
+        // 「隠れ」時に存在するユニット数を減らす
+        var _SRPG_Game_BattlerBase_hide = Game_BattlerBase.prototype.hide;
+        Game_BattlerBase.prototype.hide = function() {
+            _SRPG_Game_BattlerBase_hide.call(this);
+            if (this.isActor()) {
+                var oldValue = $gameVariables.value(_existActorVarID);
+                $gameVariables.setValue(_existActorVarID, oldValue - 1);
+            } else {
+                var oldValue = $gameVariables.value(_existEnemyVarID);
+                $gameVariables.setValue(_existEnemyVarID, oldValue - 1);
+            }
+        };
 
-    // 「隠れ」解除時に存在するユニット数を増やす
-    var _SRPG_Game_BattlerBase_appear = Game_BattlerBase.prototype.appear;
-    Game_BattlerBase.prototype.appear = function() {
-        _SRPG_Game_BattlerBase_appear.call(this);
-        if (this.isActor()) {
-            var oldValue = $gameVariables.value(_existActorVarID);
-            $gameVariables.setValue(_existActorVarID, oldValue + 1);
-        } else {
-            var oldValue = $gameVariables.value(_existEnemyVarID);
-            $gameVariables.setValue(_existEnemyVarID, oldValue + 1);
-        }
-    };
-*/
+        // 「隠れ」解除時に存在するユニット数を増やす
+        var _SRPG_Game_BattlerBase_appear = Game_BattlerBase.prototype.appear;
+        Game_BattlerBase.prototype.appear = function() {
+            _SRPG_Game_BattlerBase_appear.call(this);
+            if (this.isActor()) {
+                var oldValue = $gameVariables.value(_existActorVarID);
+                $gameVariables.setValue(_existActorVarID, oldValue + 1);
+            } else {
+                var oldValue = $gameVariables.value(_existEnemyVarID);
+                $gameVariables.setValue(_existEnemyVarID, oldValue + 1);
+            }
+        };
+    */
 
-//====================================================================
-// ●Game_Battler
-//====================================================================
+    //====================================================================
+    // ●Game_Battler
+    //====================================================================
     var _SRPG_Game_Battler_initMembers = Game_Battler.prototype.initMembers;
     Game_Battler.prototype.initMembers = function() {
         _SRPG_Game_Battler_initMembers.call(this);
@@ -2119,11 +2147,11 @@
     Game_Battler.prototype.srpgMakeNewActions = function() {
         this.clearActions();
         //if (this.canMove()) {
-            var actionTimes = this.makeActionTimes();
-            this._actions = [];
-            for (var i = 0; i < actionTimes; i++) {
-                this._actions.push(new Game_Action(this));
-            }
+        var actionTimes = this.makeActionTimes();
+        this._actions = [];
+        for (var i = 0; i < actionTimes; i++) {
+            this._actions.push(new Game_Action(this));
+        }
         //}
         this.setActionState('waiting');
     };
@@ -2162,6 +2190,12 @@
             this.removeBuffsAuto();
             this.clearResult();
             this.setSrpgTurnEnd(false);
+            //Buff & States Core Fix
+            if (Imported.YEP_BuffsStatesCore !== undefined) {
+                if (Imported.YEP_BuffsStatesCore) {
+                    if (this.meetTurnEndStateEffectsConditions()) this.onTurnEndStateEffects();
+                }
+            }
         } else {
             return _SRPG_Game_Battler_onTurnEnd.call(this);
         }
@@ -2190,9 +2224,9 @@
         return $dataSystem.optFloorDeath ? this.hp : Math.max(this.hp - 1, 0);
     };
 
-//====================================================================
-// ●Game_Actor
-//====================================================================
+    //====================================================================
+    // ●Game_Actor
+    //====================================================================
     // 装備変更可能か
     Window_EquipSlot.prototype.isEnabled = function(index) {
         return this._actor ? this._actor.isEquipChangeOk(index) : false;
@@ -2214,7 +2248,7 @@
     // アクターコマンドで装備が可能か（移動後は不可）
     Game_Actor.prototype.canSrpgEquip = function() {
         return $gameTemp.originalPos()[0] == $gameTemp.activeEvent().posX() &&
-               $gameTemp.originalPos()[1] == $gameTemp.activeEvent().posY();
+            $gameTemp.originalPos()[1] == $gameTemp.activeEvent().posY();
     };
 
     // 経験値の割合を返す
@@ -2380,9 +2414,9 @@
         }
     };
 
-//====================================================================
-// ●Game_Enemy
-//====================================================================
+    //====================================================================
+    // ●Game_Enemy
+    //====================================================================
     // 戦闘画面での座標を設定する
     Game_Enemy.prototype.setScreenXy = function(x, y) {
         this._screenX = x;
@@ -2449,7 +2483,7 @@
             var counter = weapon.meta.srpgCounter;
         } else {
             var counter = this.enemy().meta.srpgCounter;
-        } 
+        }
         if (!counter || !counter == 'false') {
             return true;
         } else {
@@ -2598,9 +2632,9 @@
         this._actions[0].setSkill(this.attackSkillId());
     };
 
-//====================================================================
-// ●Game_Unit
-//====================================================================
+    //====================================================================
+    // ●Game_Unit
+    //====================================================================
     var _SRPG_Game_Unit_onBattleEnd = Game_Unit.prototype.onBattleEnd;
     Game_Unit.prototype.onBattleEnd = function() {
         if ($gameSystem.isSRPGMode() == true) {
@@ -2610,9 +2644,9 @@
         }
     };
 
-//====================================================================
-// ●Game_Party
-//====================================================================
+    //====================================================================
+    // ●Game_Party
+    //====================================================================
     // 初期化
     var _SRPG_Game_Party_initialize = Game_Party.prototype.initialize;
     Game_Party.prototype.initialize = function() {
@@ -2702,21 +2736,21 @@
         }
     };
 
-/*
-    // アイテム・スキルの使用条件
-    var _SRPG_Game_Party_canUse = Game_Party.prototype.canUse;
-    Game_Party.prototype.canUse = function(item) {
-        if ($gameSystem.isSRPGMode() == true) {
-            var actor = $gameSystem.EventToUnit($gameTemp.activeEvent().eventId())[1];
-            return actor.canUse(item);
-        } else {
-            return _SRPG_Game_Party_canUse.call(this, item);
-        }
-    };
-*/
-//====================================================================
-// ●Game_Troop
-//====================================================================
+    /*
+        // アイテム・スキルの使用条件
+        var _SRPG_Game_Party_canUse = Game_Party.prototype.canUse;
+        Game_Party.prototype.canUse = function(item) {
+            if ($gameSystem.isSRPGMode() == true) {
+                var actor = $gameSystem.EventToUnit($gameTemp.activeEvent().eventId())[1];
+                return actor.canUse(item);
+            } else {
+                return _SRPG_Game_Party_canUse.call(this, item);
+            }
+        };
+    */
+    //====================================================================
+    // ●Game_Troop
+    //====================================================================
     // 初期化
     var _Game_Troop_initialize = Game_Troop.prototype.initialize
     Game_Troop.prototype.initialize = function() {
@@ -2783,9 +2817,9 @@
         }
     };
 
-//====================================================================
-// ●Game_CharacterBase
-//====================================================================
+    //====================================================================
+    // ●Game_CharacterBase
+    //====================================================================
     //X座標を返す
     Game_CharacterBase.prototype.posX = function() {
         return this._x;
@@ -2804,8 +2838,8 @@
     //プレイヤーの移動速度を変える（自動移動中は高速化）
     var _SRPG_Game_CharacterBase_realMoveSpeed = Game_CharacterBase.prototype.realMoveSpeed;
     Game_CharacterBase.prototype.realMoveSpeed = function() {
-        if ($gameSystem.isSRPGMode() == true && 
-           ($gameTemp.isAutoMoveDestinationValid() == true || $gameTemp.isDestinationValid() == true)) {
+        if ($gameSystem.isSRPGMode() == true &&
+            ($gameTemp.isAutoMoveDestinationValid() == true || $gameTemp.isDestinationValid() == true)) {
             return 6;
         } else {
             return _SRPG_Game_CharacterBase_realMoveSpeed.call(this);
@@ -2856,7 +2890,7 @@
         }
         if (($gameMap.terrainTag(x2, y2) > 0 && $gameMap.terrainTag(x2, y2) <= tag) ||
             ($gameMap.terrainTag(x, y) > 0 && $gameMap.terrainTag(x, y) <= tag &&
-             $gameMap.isPassable(x2, y2, this.reverseDir(d)))) {
+                $gameMap.isPassable(x2, y2, this.reverseDir(d)))) {
             return true;
         }
         if (!this.isMapPassable(x, y, d)) {
@@ -2995,43 +3029,43 @@
         }
         return true;
     };
-    
+
     //特殊射程の処理
     Game_CharacterBase.prototype.srpgRangeExtention = function(x, y, oriX, oriY, skill, range) {
         switch (skill && skill.meta.specialRange) {
-        case 'king': 
-            if ((Math.abs(x - oriX) <= range / 2) && (Math.abs(y - oriY) <= range / 2)) {
-                return true;
-            } else {
-                return false;
-            }
-        case 'queen': 
-            if ((x == oriX || y == oriY) || (Math.abs(x - oriX) == Math.abs(y - oriY))) {
-                return true;
-            } else {
-                return false;
-            }
-        case 'rook': 
-        case 'luke': 
-            if (x == oriX || y == oriY) {
-                return true;
-            } else {
-                return false;
-            }
-        case 'bishop': 
-            if (Math.abs(x - oriX) == Math.abs(y - oriY)) {
-                return true;
-            } else {
-                return false;
-            }
-        case 'knight': 
-            if (!((x == oriX || y == oriY) || (Math.abs(x - oriX) == Math.abs(y - oriY)))) {
-                return true;
-            } else {
-                return false;
-            }
-        default:
-            return true;
+            case 'king':
+                if ((Math.abs(x - oriX) <= range / 2) && (Math.abs(y - oriY) <= range / 2)) {
+                    return true;
+                } else {
+                    return false;
+                }
+                case 'queen':
+                    if ((x == oriX || y == oriY) || (Math.abs(x - oriX) == Math.abs(y - oriY))) {
+                        return true;
+                    } else {
+                        return false;
+                    }
+                    case 'rook':
+                    case 'luke':
+                        if (x == oriX || y == oriY) {
+                            return true;
+                        } else {
+                            return false;
+                        }
+                        case 'bishop':
+                            if (Math.abs(x - oriX) == Math.abs(y - oriY)) {
+                                return true;
+                            } else {
+                                return false;
+                            }
+                            case 'knight':
+                                if (!((x == oriX || y == oriY) || (Math.abs(x - oriX) == Math.abs(y - oriY)))) {
+                                    return true;
+                                } else {
+                                    return false;
+                                }
+                                default:
+                                    return true;
         }
     };
 
@@ -3044,13 +3078,13 @@
         if (route[route.length - 1] != 2) {
             if (this.srpgRangeCanPass(x, y, 8)) {
                 //if ($gameTemp.RangeTable(x, $gameMap.roundY(y - 1))[0] < range - 1) {
-                    if (this.srpgRangeExtention(x, $gameMap.roundY(y - 1), oriX, oriY, skill, range + route.length - 1) == true) {
-                        if ($gameTemp.MoveTable(x, $gameMap.roundY(y - 1))[0] < 0 && $gameTemp.RangeTable(x, $gameMap.roundY(y - 1))[0] < 0) {
-                            $gameTemp.pushRangeList([x, $gameMap.roundY(y - 1), true]);
-                        }
-                        $gameTemp.setRangeTable(x, $gameMap.roundY(y - 1), range - 1, route.concat(8));
+                if (this.srpgRangeExtention(x, $gameMap.roundY(y - 1), oriX, oriY, skill, range + route.length - 1) == true) {
+                    if ($gameTemp.MoveTable(x, $gameMap.roundY(y - 1))[0] < 0 && $gameTemp.RangeTable(x, $gameMap.roundY(y - 1))[0] < 0) {
+                        $gameTemp.pushRangeList([x, $gameMap.roundY(y - 1), true]);
                     }
-                    this.makeRangeTable(x, $gameMap.roundY(y - 1), range - 1, route.concat(8), oriX, oriY, skill);
+                    $gameTemp.setRangeTable(x, $gameMap.roundY(y - 1), range - 1, route.concat(8));
+                }
+                this.makeRangeTable(x, $gameMap.roundY(y - 1), range - 1, route.concat(8), oriX, oriY, skill);
                 //}
             }
         }
@@ -3058,13 +3092,13 @@
         if (route[route.length - 1] != 4) {
             if (this.srpgRangeCanPass(x, y, 6)) {
                 //if ($gameTemp.RangeTable($gameMap.roundX(x + 1), y)[0] < range - 1) {
-                    if (this.srpgRangeExtention($gameMap.roundX(x + 1), y, oriX, oriY, skill, range + route.length - 1) == true) {
-                        if ($gameTemp.MoveTable($gameMap.roundX(x + 1), y)[0] < 0 && $gameTemp.RangeTable($gameMap.roundX(x + 1), y)[0] < 0) {
-                            $gameTemp.pushRangeList([$gameMap.roundX(x + 1), y, true]);
-                        }
-                        $gameTemp.setRangeTable($gameMap.roundX(x + 1), y, range - 1, route.concat(6));
+                if (this.srpgRangeExtention($gameMap.roundX(x + 1), y, oriX, oriY, skill, range + route.length - 1) == true) {
+                    if ($gameTemp.MoveTable($gameMap.roundX(x + 1), y)[0] < 0 && $gameTemp.RangeTable($gameMap.roundX(x + 1), y)[0] < 0) {
+                        $gameTemp.pushRangeList([$gameMap.roundX(x + 1), y, true]);
                     }
-                    this.makeRangeTable($gameMap.roundX(x + 1), y, range - 1, route.concat(6), oriX, oriY, skill);
+                    $gameTemp.setRangeTable($gameMap.roundX(x + 1), y, range - 1, route.concat(6));
+                }
+                this.makeRangeTable($gameMap.roundX(x + 1), y, range - 1, route.concat(6), oriX, oriY, skill);
                 //}
             }
         }
@@ -3072,13 +3106,13 @@
         if (route[route.length - 1] != 6) {
             if (this.srpgRangeCanPass(x, y, 4)) {
                 //if ($gameTemp.RangeTable($gameMap.roundX(x - 1), y)[0] < range - 1) {
-                    if (this.srpgRangeExtention($gameMap.roundX(x - 1), y, oriX, oriY, skill, range + route.length - 1) == true) {
-                        if ($gameTemp.MoveTable($gameMap.roundX(x - 1), y)[0] < 0 && $gameTemp.RangeTable($gameMap.roundX(x - 1), y)[0] < 0) {
-                            $gameTemp.pushRangeList([$gameMap.roundX(x - 1), y, true]);
-                        }
-                        $gameTemp.setRangeTable($gameMap.roundX(x - 1), y, range - 1, route.concat(4));
+                if (this.srpgRangeExtention($gameMap.roundX(x - 1), y, oriX, oriY, skill, range + route.length - 1) == true) {
+                    if ($gameTemp.MoveTable($gameMap.roundX(x - 1), y)[0] < 0 && $gameTemp.RangeTable($gameMap.roundX(x - 1), y)[0] < 0) {
+                        $gameTemp.pushRangeList([$gameMap.roundX(x - 1), y, true]);
                     }
-                    this.makeRangeTable($gameMap.roundX(x - 1), y, range - 1, route.concat(4), oriX, oriY, skill);
+                    $gameTemp.setRangeTable($gameMap.roundX(x - 1), y, range - 1, route.concat(4));
+                }
+                this.makeRangeTable($gameMap.roundX(x - 1), y, range - 1, route.concat(4), oriX, oriY, skill);
                 //}
             }
         }
@@ -3086,37 +3120,37 @@
         if (route[route.length - 1] != 8) {
             if (this.srpgRangeCanPass(x, y, 2)) {
                 //if ($gameTemp.RangeTable(x, $gameMap.roundY(y + 1))[0] < range - 1) {
-                    if (this.srpgRangeExtention(x, $gameMap.roundY(y + 1), oriX, oriY, skill, range + route.length - 1) == true) {
-                        if ($gameTemp.MoveTable(x, $gameMap.roundY(y + 1))[0] < 0 && $gameTemp.RangeTable(x, $gameMap.roundY(y + 1))[0] < 0) {
-                            $gameTemp.pushRangeList([x, $gameMap.roundY(y + 1), true]);
-                        }
-                        $gameTemp.setRangeTable(x, $gameMap.roundY(y + 1), range - 1, route.concat(2));
+                if (this.srpgRangeExtention(x, $gameMap.roundY(y + 1), oriX, oriY, skill, range + route.length - 1) == true) {
+                    if ($gameTemp.MoveTable(x, $gameMap.roundY(y + 1))[0] < 0 && $gameTemp.RangeTable(x, $gameMap.roundY(y + 1))[0] < 0) {
+                        $gameTemp.pushRangeList([x, $gameMap.roundY(y + 1), true]);
                     }
-                    this.makeRangeTable(x, $gameMap.roundY(y + 1), range - 1, route.concat(2), oriX, oriY, skill);
+                    $gameTemp.setRangeTable(x, $gameMap.roundY(y + 1), range - 1, route.concat(2));
+                }
+                this.makeRangeTable(x, $gameMap.roundY(y + 1), range - 1, route.concat(2), oriX, oriY, skill);
                 //}
             }
         }
     };
-/*
-    //移動可能かを判定する（イベント出現時用）
-    Game_CharacterBase.prototype.srpgAppearCanPass = function(x, y, d) {
-        var x2 = $gameMap.roundXWithDirection(x, d);
-        var y2 = $gameMap.roundYWithDirection(y, d);
-        if (!$gameMap.isValid(x2, y2)) {
-            return false;
-        }
-        if (!this.isMapPassable(x, y, d)) {
-            return false;
-        }
-        return true;
-    };
-*/
+    /*
+        //移動可能かを判定する（イベント出現時用）
+        Game_CharacterBase.prototype.srpgAppearCanPass = function(x, y, d) {
+            var x2 = $gameMap.roundXWithDirection(x, d);
+            var y2 = $gameMap.roundYWithDirection(y, d);
+            if (!$gameMap.isValid(x2, y2)) {
+                return false;
+            }
+            if (!this.isMapPassable(x, y, d)) {
+                return false;
+            }
+            return true;
+        };
+    */
 
     //出現可能場所の計算
     Game_CharacterBase.prototype.makeAppearPoint = function(event, x, y, tag) {
         var events = $gameMap.eventsXyNt(x, y);
         if (events.length == 0 || (events.length == 1 && events[0] == event)) {
-            return [x,y];
+            return [x, y];
         }
         //上方向を探索
         if (this.srpgMoveCanPass(x, y, 8, tag)) {
@@ -3136,9 +3170,9 @@
         }
     };
 
-//====================================================================
-// ●Game_Player
-//====================================================================
+    //====================================================================
+    // ●Game_Player
+    //====================================================================
     //プレイヤーの画像を変更する
     var _SRPG_Game_Player_refresh = Game_Player.prototype.refresh;
     Game_Player.prototype.refresh = function() {
@@ -3160,13 +3194,13 @@
             var x = $gameTemp.autoMoveDestinationX() - this.x;
             var y = $gameTemp.autoMoveDestinationY() - this.y;
             if ($gameMap.isLoopHorizontal() == true) {
-    　　        var minDisX = Math.abs($gameTemp.autoMoveDestinationX() - this.x);
+                var minDisX = Math.abs($gameTemp.autoMoveDestinationX() - this.x);
                 var destX = $gameTemp.autoMoveDestinationX() > this.x ? $gameTemp.autoMoveDestinationX() - $gameMap.width() : $gameTemp.autoMoveDestinationX() + $gameMap.width();
                 var disX = Math.abs(destX - this.x);
                 x = minDisX < disX ? x : x * -1;
             }
             if ($gameMap.isLoopVertical() == true) {
-        　　    var minDisY = Math.abs($gameTemp.autoMoveDestinationY() - this.y);
+                var minDisY = Math.abs($gameTemp.autoMoveDestinationY() - this.y);
                 var destY = $gameTemp.autoMoveDestinationY() > this.y ? $gameTemp.autoMoveDestinationY() - $gameMap.height() : $gameTemp.autoMoveDestinationY() + $gameMap.height();
                 var disY = Math.abs(destY - this.y);
                 y = minDisY < disY ? y : y * -1;
@@ -3202,10 +3236,10 @@
         }
     };
 
-/* 戦闘中のイベント起動に関する処理
- * 戦闘中、通常のイベント内容は起動しないようにする
- * 戦闘中はユニットが選択されたと判断して、移動範囲演算とステータスの表示を行う(行動可能アクターなら行動する)。
-*/
+    /* 戦闘中のイベント起動に関する処理
+     * 戦闘中、通常のイベント内容は起動しないようにする
+     * 戦闘中はユニットが選択されたと判断して、移動範囲演算とステータスの表示を行う(行動可能アクターなら行動する)。
+     */
     //戦闘中、ユニット上で決定キーが押された時の処理
     var _SRPG_Game_Player_startMapEvent = Game_Player.prototype.startMapEvent;
     Game_Player.prototype.startMapEvent = function(x, y, triggers, normal) {
@@ -3365,9 +3399,9 @@
         }
     };
 
-//====================================================================
-// ●Game_Follower
-//====================================================================
+    //====================================================================
+    // ●Game_Follower
+    //====================================================================
     //戦闘中、フォロワーが表示されないようにする
     var _SRPG_Game_Follower_refresh = Game_Follower.prototype.refresh;
     Game_Follower.prototype.refresh = function() {
@@ -3378,9 +3412,9 @@
         }
     };
 
-//====================================================================
-// ●Game_Event
-//====================================================================
+    //====================================================================
+    // ●Game_Event
+    //====================================================================
     //初期化処理
     var _SRPG_Game_Event_initMembers = Game_Event.prototype.initMembers;
     Game_Event.prototype.initMembers = function() {
@@ -3425,7 +3459,7 @@
         if ($gameSystem.isSRPGMode() == true) {
             var battlerArray = $gameSystem.EventToUnit(this._eventId);
             if (!battlerArray || this.isErased()) {
-                return ;
+                return;
             }
             var type = battlerArray[0];
             var unit = battlerArray[1];
@@ -3484,9 +3518,9 @@
         }
     };
 
-//====================================================================
-// ●Game_Map
-//====================================================================
+    //====================================================================
+    // ●Game_Map
+    //====================================================================
     //アクター・エネミーデータに合わせてグラフィックを変更する
     Game_Map.prototype.setEventImages = function() {
         this.events().forEach(function(event) {
@@ -3519,219 +3553,219 @@
         return _SRPG_Game_Map_setupStartingMapEvent.call(this);
     };
 
-//====================================================================
-// ●Game_Interpreter
-//====================================================================
-// イベントＩＤをもとに、ユニット間の距離をとる
-Game_Interpreter.prototype.EventDistance = function(variableId, eventId1, eventId2) {
-    var event1 = $gameMap.event(eventId1);
-    var event2 = $gameMap.event(eventId2);
-    if (event1 && event2 && !event1.isErased() && !event2.isErased()) {
-        var value = $gameSystem.unitDistance(event1, event2);
-        $gameVariables.setValue(variableId, value);
-    } else {
-        $gameVariables.setValue(variableId, 999);
-    }
-    return true;
-};
+    //====================================================================
+    // ●Game_Interpreter
+    //====================================================================
+    // イベントＩＤをもとに、ユニット間の距離をとる
+    Game_Interpreter.prototype.EventDistance = function(variableId, eventId1, eventId2) {
+        var event1 = $gameMap.event(eventId1);
+        var event2 = $gameMap.event(eventId2);
+        if (event1 && event2 && !event1.isErased() && !event2.isErased()) {
+            var value = $gameSystem.unitDistance(event1, event2);
+            $gameVariables.setValue(variableId, value);
+        } else {
+            $gameVariables.setValue(variableId, 999);
+        }
+        return true;
+    };
 
-// アクターＩＤをもとに、ユニット間の距離をとる
-Game_Interpreter.prototype.ActorDistance = function(variableId, actorId1, actorId2) {
-    var eventId1 = $gameSystem.ActorToEvent(actorId1);
-    var eventId2 = $gameSystem.ActorToEvent(actorId2);
-    this.EventDistance(variableId, eventId1, eventId2);
-    return true;
-};
+    // アクターＩＤをもとに、ユニット間の距離をとる
+    Game_Interpreter.prototype.ActorDistance = function(variableId, actorId1, actorId2) {
+        var eventId1 = $gameSystem.ActorToEvent(actorId1);
+        var eventId2 = $gameSystem.ActorToEvent(actorId2);
+        this.EventDistance(variableId, eventId1, eventId2);
+        return true;
+    };
 
-// 特定のＩＤのイベントと全アクターの中で最短の距離をとる
-Game_Interpreter.prototype.fromActorMinimumDistance = function(variableId, eventId) {
-    var minDistance = 999;
-    var event1 = $gameMap.event(eventId);
-    $gameMap.events().forEach(function(event) {
-        if (event.isType() === 'actor') {
-            var event2 = $gameMap.event(event.eventId());
-            if (event1 && event2 && !event1.isErased() && !event2.isErased()) {
-                var value = $gameSystem.unitDistance(event1, event2);
-                if (value < minDistance) {
-                    minDistance = value;
+    // 特定のＩＤのイベントと全アクターの中で最短の距離をとる
+    Game_Interpreter.prototype.fromActorMinimumDistance = function(variableId, eventId) {
+        var minDistance = 999;
+        var event1 = $gameMap.event(eventId);
+        $gameMap.events().forEach(function(event) {
+            if (event.isType() === 'actor') {
+                var event2 = $gameMap.event(event.eventId());
+                if (event1 && event2 && !event1.isErased() && !event2.isErased()) {
+                    var value = $gameSystem.unitDistance(event1, event2);
+                    if (value < minDistance) {
+                        minDistance = value;
+                    }
                 }
             }
-        }
-    });
-    $gameVariables.setValue(variableId, minDistance);
-    return true;
-};
+        });
+        $gameVariables.setValue(variableId, minDistance);
+        return true;
+    };
 
-// 新規アクターを追加する（増援）
-Game_Interpreter.prototype.addActor = function(eventId, actorId) {
-    var actor_unit = $gameActors.actor(actorId);
-    var event = $gameMap.event(eventId);
-    if (actor_unit && event) {
-        $gameSystem.pushSrpgAllActors(event.eventId());
-        actor_unit.initTp(); //TPを初期化
-        var bitmap = ImageManager.loadFace(actor_unit.faceName()); //顔グラフィックをプリロードする
-        var oldValue = $gameVariables.value(_existActorVarID);
-        $gameVariables.setValue(_existActorVarID, oldValue + 1);
-        $gameSystem.setEventToUnit(event.eventId(), 'actor', actor_unit.actorId());
-        event.setType('actor');
-        var xy = event.makeAppearPoint(event, event.posX(), event.posY(), actor_unit.srpgThroughTag());
-        event.setPosition(xy[0], xy[1]);
-        $gameMap.setEventImages();
-    }
-    return true;
-};
-
-// 新規エネミーを追加する（増援）
-Game_Interpreter.prototype.addEnemy = function(eventId, enemyId) {
-    var enemy_unit = new Game_Enemy(enemyId, 0, 0);
-    var event = $gameMap.event(eventId);
-    if (enemy_unit && event) {
-        enemy_unit.initTp(); //TPを初期化
-        var faceName = enemy_unit.enemy().meta.faceName; //顔グラフィックをプリロードする
-        if (faceName) {
-            var bitmap = ImageManager.loadFace(faceName);
-        } else {
-            if ($gameSystem.isSideView()) {
-                var bitmap = ImageManager.loadSvEnemy(enemy_unit.battlerName(), enemy_unit.battlerHue());
-            } else {
-                var bitmap = ImageManager.loadEnemy(enemy_unit.battlerName(), enemy_unit.battlerHue());
-            }
-        }
-        var oldValue = $gameVariables.value(_existEnemyVarID);
-        $gameVariables.setValue(_existEnemyVarID, oldValue + 1);
-        $gameSystem.setEventToUnit(event.eventId(), 'enemy', enemy_unit);
-        event.setType('enemy');
-        var xy = event.makeAppearPoint(event, event.posX(), event.posY(), enemy_unit.srpgThroughTag());
-        event.setPosition(xy[0], xy[1]);
-        $gameMap.setEventImages();
-    }
-    return true;
-};
-
-// 指定した座標にプレイヤーを移動する
-Game_Interpreter.prototype.playerMoveTo = function(x, y) {
-    $gameTemp.setAutoMoveDestinationValid(true);
-    $gameTemp.setAutoMoveDestination(x, y);
-    return true;
-};
-
-// 指定したイベントの戦闘モードを設定する
-Game_Interpreter.prototype.setBattleMode = function(eventId, mode) {
-    var battlerArray = $gameSystem.EventToUnit(eventId);
-    if (battlerArray && (battlerArray[0] === 'actor' || battlerArray[0] === 'enemy')) {
-        battlerArray[1].setBattleMode(mode);
-    }
-    return true;
-};
-
-// 指定したイベントのターゲットＩＤを設定する（戦闘モードが'aimingEvent'または'aimingActor'でのみ機能する）
-Game_Interpreter.prototype.setTargetId = function(eventId, targetId) {
-    var battlerArray = $gameSystem.EventToUnit(eventId);
-    if (battlerArray && (battlerArray[0] === 'actor' || battlerArray[0] === 'enemy')) {
-        battlerArray[1].setTargetId(targetId);
-    }
-    return true;
-};
-
-// 指定したイベントが戦闘不能か指定したスイッチに返す
-Game_Interpreter.prototype.isUnitDead = function(switchId, eventId) {
-    $gameSwitches.setValue(switchId, false);
-    var battlerArray = $gameSystem.EventToUnit(eventId);
-    if (battlerArray && (battlerArray[0] === 'actor' || battlerArray[0] === 'enemy')) {
-        $gameSwitches.setValue(switchId, battlerArray[1].isDead());
-    }
-    return true;
-};
-
-// 指定した座標のイベントＩＤを取得する
-Game_Interpreter.prototype.isEventIdXy = function(variableId, x, y) {
-    $gameVariables.setValue(variableId, 0);
-    $gameMap.eventsXy(x, y).forEach(function(event) {
-        var battlerArray = $gameSystem.EventToUnit(event.eventId());
-        if (battlerArray && (battlerArray[0] === 'actor' || battlerArray[0] === 'enemy')) {
-            $gameVariables.setValue(variableId, event.eventId());
-        }
-    });
-    return true;
-};
-
-// 指定したリージョンID上に味方ユニットがいるか判定する
-Game_Interpreter.prototype.checkRegionId = function(switcheId, regionId) {
-    $gameSwitches.setValue(switcheId, false);
-    $gameMap.events().forEach(function(event) {
-        if (event.isType() === 'actor') {
-            if ($gameMap.regionId(event.posX(), event.posY()) == regionId) {
-                $gameSwitches.setValue(switcheId, true);
-            }
-        }
-    });
-};
-
-// 指定したイベントＩＤのユニットを全回復する
-Game_Interpreter.prototype.unitRecoverAll = function(eventId) {
-    var battlerArray = $gameSystem.EventToUnit(eventId);
-    if (battlerArray && (battlerArray[0] === 'actor' || battlerArray[0] === 'enemy')) {
-        if (battlerArray[1].isAlive()) {
-            battlerArray[1].recoverAll();
-        }
-    }
-    return true;
-};
-
-// 指定したイベントＩＤのユニットを復活する
-Game_Interpreter.prototype.unitRevive = function(eventId) {
-    var battlerArray = $gameSystem.EventToUnit(eventId);
-    var event = $gameMap.event(eventId);
-    if (battlerArray && (battlerArray[0] === 'actor' || battlerArray[0] === 'enemy')) {
-        if (battlerArray[1].isAlive()) {
-            return;
-        }
-        battlerArray[1].removeState(battlerArray[1].deathStateId());
-        if (battlerArray[0] === 'actor') {
+    // 新規アクターを追加する（増援）
+    Game_Interpreter.prototype.addActor = function(eventId, actorId) {
+        var actor_unit = $gameActors.actor(actorId);
+        var event = $gameMap.event(eventId);
+        if (actor_unit && event) {
+            $gameSystem.pushSrpgAllActors(event.eventId());
+            actor_unit.initTp(); //TPを初期化
+            var bitmap = ImageManager.loadFace(actor_unit.faceName()); //顔グラフィックをプリロードする
             var oldValue = $gameVariables.value(_existActorVarID);
             $gameVariables.setValue(_existActorVarID, oldValue + 1);
-        } else {
-            var oldValue = $gameVariables.value(_existEnemyVarID);
-            $gameVariables.setValue(_existEnemyVarID, oldValue + 1);
+            $gameSystem.setEventToUnit(event.eventId(), 'actor', actor_unit.actorId());
+            event.setType('actor');
+            var xy = event.makeAppearPoint(event, event.posX(), event.posY(), actor_unit.srpgThroughTag());
+            event.setPosition(xy[0], xy[1]);
+            $gameMap.setEventImages();
         }
-        var xy = event.makeAppearPoint(event, event.posX(), event.posY(), battlerArray[1].srpgThroughTag());
-        event.setPosition(xy[0], xy[1]);
-        event.appear();
-        $gameMap.setEventImages();
-    }
-};
+        return true;
+    };
 
-// 指定したイベントＩＤのユニットを指定したステートにする
-Game_Interpreter.prototype.unitAddState = function(eventId, stateId) {
-    var battlerArray = $gameSystem.EventToUnit(eventId);
-    var event = $gameMap.event(eventId);
-    if (battlerArray && event && (battlerArray[0] === 'actor' || battlerArray[0] === 'enemy')) {
-        var alreadyDead = battlerArray[1].isDead();
-        battlerArray[1].addState(stateId);
-        if (battlerArray[1].isDead() && !alreadyDead) {
-            if (!event.isErased()) {
-                event.erase();
-                if (battlerArray[0] === 'actor') {
-                    var oldValue = $gameVariables.value(_existActorVarID);
-                    $gameVariables.setValue(_existActorVarID, oldValue - 1);
-                } else if (battlerArray[0] === 'enemy') {
-                    var oldValue = $gameVariables.value(_existEnemyVarID);
-                    $gameVariables.setValue(_existEnemyVarID, oldValue - 1);
+    // 新規エネミーを追加する（増援）
+    Game_Interpreter.prototype.addEnemy = function(eventId, enemyId) {
+        var enemy_unit = new Game_Enemy(enemyId, 0, 0);
+        var event = $gameMap.event(eventId);
+        if (enemy_unit && event) {
+            enemy_unit.initTp(); //TPを初期化
+            var faceName = enemy_unit.enemy().meta.faceName; //顔グラフィックをプリロードする
+            if (faceName) {
+                var bitmap = ImageManager.loadFace(faceName);
+            } else {
+                if ($gameSystem.isSideView()) {
+                    var bitmap = ImageManager.loadSvEnemy(enemy_unit.battlerName(), enemy_unit.battlerHue());
+                } else {
+                    var bitmap = ImageManager.loadEnemy(enemy_unit.battlerName(), enemy_unit.battlerHue());
                 }
             }
+            var oldValue = $gameVariables.value(_existEnemyVarID);
+            $gameVariables.setValue(_existEnemyVarID, oldValue + 1);
+            $gameSystem.setEventToUnit(event.eventId(), 'enemy', enemy_unit);
+            event.setType('enemy');
+            var xy = event.makeAppearPoint(event, event.posX(), event.posY(), enemy_unit.srpgThroughTag());
+            event.setPosition(xy[0], xy[1]);
+            $gameMap.setEventImages();
         }
-        battlerArray[1].clearResult();
-    }
-    return true;
-};
+        return true;
+    };
 
-// ターン終了を行う（メニューの「ターン終了」と同じ）
+    // 指定した座標にプレイヤーを移動する
+    Game_Interpreter.prototype.playerMoveTo = function(x, y) {
+        $gameTemp.setAutoMoveDestinationValid(true);
+        $gameTemp.setAutoMoveDestination(x, y);
+        return true;
+    };
+
+    // 指定したイベントの戦闘モードを設定する
+    Game_Interpreter.prototype.setBattleMode = function(eventId, mode) {
+        var battlerArray = $gameSystem.EventToUnit(eventId);
+        if (battlerArray && (battlerArray[0] === 'actor' || battlerArray[0] === 'enemy')) {
+            battlerArray[1].setBattleMode(mode);
+        }
+        return true;
+    };
+
+    // 指定したイベントのターゲットＩＤを設定する（戦闘モードが'aimingEvent'または'aimingActor'でのみ機能する）
+    Game_Interpreter.prototype.setTargetId = function(eventId, targetId) {
+        var battlerArray = $gameSystem.EventToUnit(eventId);
+        if (battlerArray && (battlerArray[0] === 'actor' || battlerArray[0] === 'enemy')) {
+            battlerArray[1].setTargetId(targetId);
+        }
+        return true;
+    };
+
+    // 指定したイベントが戦闘不能か指定したスイッチに返す
+    Game_Interpreter.prototype.isUnitDead = function(switchId, eventId) {
+        $gameSwitches.setValue(switchId, false);
+        var battlerArray = $gameSystem.EventToUnit(eventId);
+        if (battlerArray && (battlerArray[0] === 'actor' || battlerArray[0] === 'enemy')) {
+            $gameSwitches.setValue(switchId, battlerArray[1].isDead());
+        }
+        return true;
+    };
+
+    // 指定した座標のイベントＩＤを取得する
+    Game_Interpreter.prototype.isEventIdXy = function(variableId, x, y) {
+        $gameVariables.setValue(variableId, 0);
+        $gameMap.eventsXy(x, y).forEach(function(event) {
+            var battlerArray = $gameSystem.EventToUnit(event.eventId());
+            if (battlerArray && (battlerArray[0] === 'actor' || battlerArray[0] === 'enemy')) {
+                $gameVariables.setValue(variableId, event.eventId());
+            }
+        });
+        return true;
+    };
+
+    // 指定したリージョンID上に味方ユニットがいるか判定する
+    Game_Interpreter.prototype.checkRegionId = function(switcheId, regionId) {
+        $gameSwitches.setValue(switcheId, false);
+        $gameMap.events().forEach(function(event) {
+            if (event.isType() === 'actor') {
+                if ($gameMap.regionId(event.posX(), event.posY()) == regionId) {
+                    $gameSwitches.setValue(switcheId, true);
+                }
+            }
+        });
+    };
+
+    // 指定したイベントＩＤのユニットを全回復する
+    Game_Interpreter.prototype.unitRecoverAll = function(eventId) {
+        var battlerArray = $gameSystem.EventToUnit(eventId);
+        if (battlerArray && (battlerArray[0] === 'actor' || battlerArray[0] === 'enemy')) {
+            if (battlerArray[1].isAlive()) {
+                battlerArray[1].recoverAll();
+            }
+        }
+        return true;
+    };
+
+    // 指定したイベントＩＤのユニットを復活する
+    Game_Interpreter.prototype.unitRevive = function(eventId) {
+        var battlerArray = $gameSystem.EventToUnit(eventId);
+        var event = $gameMap.event(eventId);
+        if (battlerArray && (battlerArray[0] === 'actor' || battlerArray[0] === 'enemy')) {
+            if (battlerArray[1].isAlive()) {
+                return;
+            }
+            battlerArray[1].removeState(battlerArray[1].deathStateId());
+            if (battlerArray[0] === 'actor') {
+                var oldValue = $gameVariables.value(_existActorVarID);
+                $gameVariables.setValue(_existActorVarID, oldValue + 1);
+            } else {
+                var oldValue = $gameVariables.value(_existEnemyVarID);
+                $gameVariables.setValue(_existEnemyVarID, oldValue + 1);
+            }
+            var xy = event.makeAppearPoint(event, event.posX(), event.posY(), battlerArray[1].srpgThroughTag());
+            event.setPosition(xy[0], xy[1]);
+            event.appear();
+            $gameMap.setEventImages();
+        }
+    };
+
+    // 指定したイベントＩＤのユニットを指定したステートにする
+    Game_Interpreter.prototype.unitAddState = function(eventId, stateId) {
+        var battlerArray = $gameSystem.EventToUnit(eventId);
+        var event = $gameMap.event(eventId);
+        if (battlerArray && event && (battlerArray[0] === 'actor' || battlerArray[0] === 'enemy')) {
+            var alreadyDead = battlerArray[1].isDead();
+            battlerArray[1].addState(stateId);
+            if (battlerArray[1].isDead() && !alreadyDead) {
+                if (!event.isErased()) {
+                    event.erase();
+                    if (battlerArray[0] === 'actor') {
+                        var oldValue = $gameVariables.value(_existActorVarID);
+                        $gameVariables.setValue(_existActorVarID, oldValue - 1);
+                    } else if (battlerArray[0] === 'enemy') {
+                        var oldValue = $gameVariables.value(_existEnemyVarID);
+                        $gameVariables.setValue(_existEnemyVarID, oldValue - 1);
+                    }
+                }
+            }
+            battlerArray[1].clearResult();
+        }
+        return true;
+    };
+
+    // ターン終了を行う（メニューの「ターン終了」と同じ）
     Game_Interpreter.prototype.turnEnd = function() {
         $gameTemp.setTurnEndFlag(true);
         return true;
     };
 
-// プレイヤーの操作を受け付けるかの判定（操作できるサブフェーズか？）
+    // プレイヤーの操作を受け付けるかの判定（操作できるサブフェーズか？）
     Game_Interpreter.prototype.isSubPhaseNormal = function(id) {
         if ($gameSystem.isBattlePhase() === 'actor_phase' && $gameSystem.isSubBattlePhase() === 'normal') {
             $gameSwitches.setValue(id, true);
@@ -3741,22 +3775,23 @@ Game_Interpreter.prototype.unitAddState = function(eventId, stateId) {
         return true;
     };
 
-//====================================================================
-// ●Sprite_Actor
-//====================================================================
+    //====================================================================
+    // ●Sprite_Actor
+    //====================================================================
     //アクタースプライトの基準位置
     var _SRPG_Sprite_Actor_setActorHome = Sprite_Actor.prototype.setActorHome;
     Sprite_Actor.prototype.setActorHome = function(index) {
         if ($gameSystem.isSRPGMode() == true) {
-            this.setHome(Graphics.width - 216 - index * 240, Graphics.height / 2 + 48);
+            this.setHome(eval(_actorHomeX), eval(_actorHomeY));
+            //this.setHome(Graphics.width - 216 - index * 240, Graphics.height / 2 + 48);
         } else {
             _SRPG_Sprite_Actor_setActorHome.call(this, index);
         }
     };
 
-//====================================================================
-// ●Sprite_Character
-//====================================================================
+    //====================================================================
+    // ●Sprite_Character
+    //====================================================================
     //ターン終了したユニットか返す
     Sprite_Character.prototype.isTurnEndUnit = function() {
         if (this._character.isEvent() == true) {
@@ -3835,9 +3870,9 @@ Game_Interpreter.prototype.unitAddState = function(eventId, stateId) {
         }
     };
 
-//====================================================================
-// ●Sprite_SrpgMoveTile
-//====================================================================
+    //====================================================================
+    // ●Sprite_SrpgMoveTile
+    //====================================================================
     window.Sprite_SrpgMoveTile = function() {
         this.initialize.apply(this, arguments);
     }
@@ -3878,7 +3913,7 @@ Game_Interpreter.prototype.unitAddState = function(eventId, stateId) {
 
     Sprite_SrpgMoveTile.prototype.update = function() {
         Sprite.prototype.update.call(this);
-        if (this.isThisMoveTileValid()){
+        if (this.isThisMoveTileValid()) {
             this.updatePosition();
             this.updateAnimation();
             this.visible = true;
@@ -3909,9 +3944,9 @@ Game_Interpreter.prototype.unitAddState = function(eventId, stateId) {
         this.opacity = (40 - this._frameCount) * 3;
     };
 
-//====================================================================
-// ●Spriteset_Map
-//====================================================================
+    //====================================================================
+    // ●Spriteset_Map
+    //====================================================================
     var _SRPG_Spriteset_Map_createTilemap = Spriteset_Map.prototype.createTilemap;
     Spriteset_Map.prototype.createTilemap = function() {
         _SRPG_Spriteset_Map_createTilemap.call(this);
@@ -3952,9 +3987,9 @@ Game_Interpreter.prototype.unitAddState = function(eventId, stateId) {
         }
     };
 
-//====================================================================
-// ●Window_Base
-//====================================================================
+    //====================================================================
+    // ●Window_Base
+    //====================================================================
     // EXPの割合を表示する
     Window_Base.prototype.drawSrpgExpRate = function(actor, x, y, width) {
         width = width || 120;
@@ -4041,9 +4076,9 @@ Game_Interpreter.prototype.unitAddState = function(eventId, stateId) {
         }
     };
 
-//====================================================================
-// ●Window_SrpgStatus
-//====================================================================
+    //====================================================================
+    // ●Window_SrpgStatus
+    //====================================================================
     window.Window_SrpgStatus = function() {
         this.initialize.apply(this, arguments);
     }
@@ -4083,7 +4118,7 @@ Game_Interpreter.prototype.unitAddState = function(eventId, stateId) {
     Window_SrpgStatus.prototype.refresh = function() {
         this.contents.clear();
         if (!this._battler) {
-          return;
+            return;
         }
         if (this._type === 'actor') {
             this.drawContentsActor();
@@ -4171,9 +4206,9 @@ Game_Interpreter.prototype.unitAddState = function(eventId, stateId) {
         this.drawText(text, x + 188 + 72, y, 96, 'right');
     };
 
-//====================================================================
-// ●Window_SrpgActorCommandStatus
-//====================================================================
+    //====================================================================
+    // ●Window_SrpgActorCommandStatus
+    //====================================================================
     window.Window_SrpgActorCommandStatus = function() {
         this.initialize.apply(this, arguments);
     }
@@ -4212,7 +4247,7 @@ Game_Interpreter.prototype.unitAddState = function(eventId, stateId) {
     Window_SrpgActorCommandStatus.prototype.refresh = function() {
         this.contents.clear();
         if (!this._battler) {
-          return;
+            return;
         }
         this.drawContents();
     };
@@ -4239,9 +4274,9 @@ Game_Interpreter.prototype.unitAddState = function(eventId, stateId) {
         }
     };
 
-//====================================================================
-// ●Window_SrpgBattleStatus
-//====================================================================
+    //====================================================================
+    // ●Window_SrpgBattleStatus
+    //====================================================================
     window.Window_SrpgBattleStatus = function() {
         this.initialize.apply(this, arguments);
     }
@@ -4308,7 +4343,7 @@ Game_Interpreter.prototype.unitAddState = function(eventId, stateId) {
     Window_SrpgBattleStatus.prototype.refresh = function() {
         this.contents.clear();
         if (!this._battler) {
-          return;
+            return;
         }
         if (this._changeHp <= 0 && this._reserveHp != this._battler.hp) {
             this._changeHp = 20;
@@ -4375,7 +4410,7 @@ Game_Interpreter.prototype.unitAddState = function(eventId, stateId) {
         this.changeTextColor(this.systemColor());
         this.drawText(TextManager.hpA, x, y, 44);
         this.drawCurrentAndMax(nowHp, actor.mhp, x, y, width,
-                               this.hpColor(actor), this.normalColor());
+            this.hpColor(actor), this.normalColor());
         this._changeHp -= 1;
         if (this._changeHp <= 0) {
             this._reserveHp = actor.hp;
@@ -4396,7 +4431,7 @@ Game_Interpreter.prototype.unitAddState = function(eventId, stateId) {
         this.changeTextColor(this.systemColor());
         this.drawText(TextManager.mpA, x, y, 44);
         this.drawCurrentAndMax(nowMp, actor.mmp, x, y, width,
-                               this.mpColor(actor), this.normalColor());
+            this.mpColor(actor), this.normalColor());
         this._changeMp -= 1;
         if (this._changeMp <= 0) {
             this._reserveMp = actor.mp;
@@ -4420,9 +4455,9 @@ Game_Interpreter.prototype.unitAddState = function(eventId, stateId) {
         }
     };
 
-//====================================================================
-// ●Window_SrpgBattleResult
-//====================================================================
+    //====================================================================
+    // ●Window_SrpgBattleResult
+    //====================================================================
     window.Window_SrpgBattleResult = function() {
         this.initialize.apply(this, arguments);
     }
@@ -4514,8 +4549,8 @@ Game_Interpreter.prototype.unitAddState = function(eventId, stateId) {
             var rate = 1.0;
             var nextExp = '-------'
         } else {
-            var rate = (nowExp - this._battler.expForLevel(this._level)) / 
-                       (this._battler.expForLevel(this._level + 1) - this._battler.expForLevel(this._level));
+            var rate = (nowExp - this._battler.expForLevel(this._level)) /
+                (this._battler.expForLevel(this._level + 1) - this._battler.expForLevel(this._level));
             var nextExp = this._battler.expForLevel(this._level + 1) - nowExp;
         }
         this.drawGauge(x + 100, y + lineHeight, width - 100, rate, color1, color2);
@@ -4555,9 +4590,9 @@ Game_Interpreter.prototype.unitAddState = function(eventId, stateId) {
         }
     }
 
-//====================================================================
-// ●Window_SrpgPrediction
-//====================================================================
+    //====================================================================
+    // ●Window_SrpgPrediction
+    //====================================================================
     window.Window_SrpgPrediction = function() {
         this.initialize.apply(this, arguments);
     }
@@ -4601,7 +4636,7 @@ Game_Interpreter.prototype.unitAddState = function(eventId, stateId) {
     Window_SrpgPrediction.prototype.refresh = function() {
         this.contents.clear();
         if (!this._actionArray[1] || !this._targetArray[1]) {
-          return;
+            return;
         }
         this.setTargetAction();
         this.drawContents();
@@ -4772,9 +4807,9 @@ Game_Interpreter.prototype.unitAddState = function(eventId, stateId) {
         return actor && actor.canUse(item);
     };
 
-//====================================================================
-// ●Window_ActorCommand
-//====================================================================
+    //====================================================================
+    // ●Window_ActorCommand
+    //====================================================================
     Window_Command.prototype.isList = function() {
         if (this._list) {
             return true;
@@ -4849,9 +4884,9 @@ Game_Interpreter.prototype.unitAddState = function(eventId, stateId) {
         this.y = Math.max(eventY - this.windowHeight(), 0);
     };
 
-//====================================================================
-// ●Window_SrpgBattle
-//====================================================================
+    //====================================================================
+    // ●Window_SrpgBattle
+    //====================================================================
     window.Window_SrpgBattle = function() {
         this.initialize.apply(this, arguments);
     }
@@ -4896,10 +4931,10 @@ Game_Interpreter.prototype.unitAddState = function(eventId, stateId) {
             var pos = [$gameTemp.targetEvent().posX(), $gameTemp.targetEvent().posY()];
             var flag = false;
             for (var i = 0; i < moveRangeList.length; i++) {
-                 if (moveRangeList[i][0] == pos[0] && moveRangeList[i][1] == pos[1]) {
-                     flag = true;
-                     break;
-                 }
+                if (moveRangeList[i][0] == pos[0] && moveRangeList[i][1] == pos[1]) {
+                    flag = true;
+                    break;
+                }
             }
             return this._actor && this._actor.canUse(item) && flag;
         } else {
@@ -4913,9 +4948,9 @@ Game_Interpreter.prototype.unitAddState = function(eventId, stateId) {
         this.clearCommandList();
     };
 
-//====================================================================
-// ●Window_BattleLog
-//====================================================================
+    //====================================================================
+    // ●Window_BattleLog
+    //====================================================================
     var _SRPG_Window_BattleLog_showEnemyAttackAnimation = Window_BattleLog.prototype.showEnemyAttackAnimation;
     Window_BattleLog.prototype.showEnemyAttackAnimation = function(subject, targets) {
         if ($gameSystem.isSRPGMode() == true) {
@@ -4925,9 +4960,9 @@ Game_Interpreter.prototype.unitAddState = function(eventId, stateId) {
         }
     };
 
-//====================================================================
-// ●Window_MenuStatus
-//====================================================================
+    //====================================================================
+    // ●Window_MenuStatus
+    //====================================================================
     var _SRPG_Window_MenuStatus_drawItemImage = Window_MenuStatus.prototype.drawItemImage;
     Window_MenuStatus.prototype.drawItemImage = function(index) {
         if ($gameSystem.isSRPGMode() == true) {
@@ -4944,9 +4979,9 @@ Game_Interpreter.prototype.unitAddState = function(eventId, stateId) {
         }
     };
 
-//====================================================================
-// ●Window_MenuCommand
-//====================================================================
+    //====================================================================
+    // ●Window_MenuCommand
+    //====================================================================
     var _SRPG_Window_MenuCommand_makeCommandList = Window_MenuCommand.prototype.makeCommandList;
     Window_MenuCommand.prototype.makeCommandList = function() {
         if ($gameSystem.isSRPGMode() == true) {
@@ -4978,55 +5013,55 @@ Game_Interpreter.prototype.unitAddState = function(eventId, stateId) {
         }
     };
 
-//====================================================================
-// ●Window_WinLoseCondition
-//====================================================================
-window.Window_WinLoseCondition = function() {
-    this.initialize.apply(this, arguments);
-}
-
-Window_WinLoseCondition.prototype = Object.create(Window_Base.prototype);
-Window_WinLoseCondition.prototype.constructor = Window_WinLoseCondition;
-
-Window_WinLoseCondition.prototype.initialize = function() {
-    Window_Base.prototype.initialize.call(this, 0, 0, Graphics.boxWidth, Graphics.boxHeight);
-    this.refresh();
-    this.openness = 0;
-};
-
-Window_WinLoseCondition.prototype.refresh = function() {
-    this.contents.clear();
-    var array = $gameSystem.srpgWinLoseCondition();
-    if (array && array.length > 0) {
-        var line = 0;
-        this.height = (array.length + 2) * this.lineHeight() + this.standardPadding() * 2;
-        this.y = Graphics.boxHeight / 2 - this.height / 2;
-        this.changeTextColor(this.systemColor());
-        this.drawText(_textSrpgWinCondition, 0, line * this.lineHeight(), this.width - 32, 'center');
-        line += 1;
-        this.changeTextColor(this.normalColor());
-        for (var i = 0; i < array.length; i++) {
-            if (array[i][0] == 'win') {
-                this.drawText(array[i][1], 0, line * this.lineHeight(), this.width - 32);
-                line += 1;
-            }
-        }
-        this.changeTextColor(this.systemColor());
-        this.drawText(_textSrpgLoseCondition, 0, line * this.lineHeight(), this.width - 32, 'center');
-        line += 1;
-        this.changeTextColor(this.normalColor());
-        for (var i = 0; i < array.length; i++) {
-            if (array[i][0] == 'lose') {
-                this.drawText(array[i][1], 0, line * this.lineHeight(), this.width - 32);
-                line += 1;
-            }
-        }
+    //====================================================================
+    // ●Window_WinLoseCondition
+    //====================================================================
+    window.Window_WinLoseCondition = function() {
+        this.initialize.apply(this, arguments);
     }
-};
 
-//====================================================================
-// ●Scene_Base
-//====================================================================
+    Window_WinLoseCondition.prototype = Object.create(Window_Base.prototype);
+    Window_WinLoseCondition.prototype.constructor = Window_WinLoseCondition;
+
+    Window_WinLoseCondition.prototype.initialize = function() {
+        Window_Base.prototype.initialize.call(this, 0, 0, Graphics.boxWidth, Graphics.boxHeight);
+        this.refresh();
+        this.openness = 0;
+    };
+
+    Window_WinLoseCondition.prototype.refresh = function() {
+        this.contents.clear();
+        var array = $gameSystem.srpgWinLoseCondition();
+        if (array && array.length > 0) {
+            var line = 0;
+            this.height = (array.length + 2) * this.lineHeight() + this.standardPadding() * 2;
+            this.y = Graphics.boxHeight / 2 - this.height / 2;
+            this.changeTextColor(this.systemColor());
+            this.drawText(_textSrpgWinCondition, 0, line * this.lineHeight(), this.width - 32, 'center');
+            line += 1;
+            this.changeTextColor(this.normalColor());
+            for (var i = 0; i < array.length; i++) {
+                if (array[i][0] == 'win') {
+                    this.drawText(array[i][1], 0, line * this.lineHeight(), this.width - 32);
+                    line += 1;
+                }
+            }
+            this.changeTextColor(this.systemColor());
+            this.drawText(_textSrpgLoseCondition, 0, line * this.lineHeight(), this.width - 32, 'center');
+            line += 1;
+            this.changeTextColor(this.normalColor());
+            for (var i = 0; i < array.length; i++) {
+                if (array[i][0] == 'lose') {
+                    this.drawText(array[i][1], 0, line * this.lineHeight(), this.width - 32);
+                    line += 1;
+                }
+            }
+        }
+    };
+
+    //====================================================================
+    // ●Scene_Base
+    //====================================================================
     //SRPG戦闘中は無効化する
     var _SRPG_Scene_Base_checkGameover = Scene_Base.prototype.checkGameover;
     Scene_Base.prototype.checkGameover = function() {
@@ -5035,9 +5070,9 @@ Window_WinLoseCondition.prototype.refresh = function() {
         }
     };
 
-//====================================================================
-// ●Scene_Map
-//====================================================================
+    //====================================================================
+    // ●Scene_Map
+    //====================================================================
     // 初期化
     var _SRPG_SceneMap_initialize = Scene_Map.prototype.initialize;
     Scene_Map.prototype.initialize = function() {
@@ -5048,9 +5083,9 @@ Window_WinLoseCondition.prototype.refresh = function() {
     // フェード速度を返す
     Scene_Map.prototype.fadeSpeed = function() {
         if ($gameSystem.isSRPGMode() == true && _srpgBattleQuickLaunch == 'true') {
-           return 12;
+            return 12;
         } else {
-           return Scene_Base.prototype.fadeSpeed.call(this);
+            return Scene_Base.prototype.fadeSpeed.call(this);
         }
     };
 
@@ -5133,10 +5168,10 @@ Window_WinLoseCondition.prototype.refresh = function() {
         this._mapSrpgActorCommandWindow.x = Math.max(Graphics.boxWidth / 2 - this._mapSrpgActorCommandWindow.windowWidth(), 0);
         this._mapSrpgActorCommandWindow.y = Math.max(Graphics.boxHeight / 2 - this._mapSrpgActorCommandWindow.windowHeight(), 0);
         this._mapSrpgActorCommandWindow.setHandler('attack', this.commandAttack.bind(this));
-        this._mapSrpgActorCommandWindow.setHandler('skill',  this.commandSkill.bind(this));
-        this._mapSrpgActorCommandWindow.setHandler('item',   this.commandItem.bind(this));
-        this._mapSrpgActorCommandWindow.setHandler('equip',   this.commandEquip.bind(this));
-        this._mapSrpgActorCommandWindow.setHandler('wait',  this.commandWait.bind(this));
+        this._mapSrpgActorCommandWindow.setHandler('skill', this.commandSkill.bind(this));
+        this._mapSrpgActorCommandWindow.setHandler('item', this.commandItem.bind(this));
+        this._mapSrpgActorCommandWindow.setHandler('equip', this.commandEquip.bind(this));
+        this._mapSrpgActorCommandWindow.setHandler('wait', this.commandWait.bind(this));
         this._mapSrpgActorCommandWindow.setHandler('cancel', this.selectPreviousActorCommand.bind(this));
         this.addWindow(this._mapSrpgActorCommandWindow);
     };
@@ -5154,7 +5189,7 @@ Window_WinLoseCondition.prototype.refresh = function() {
         var wh = Graphics.boxHeight - wy - this._mapSrpgActorCommandStatusWindow.windowHeight();
         this._skillWindow = new Window_BattleSkill(0, wy, Graphics.boxWidth, wh);
         this._skillWindow.setHelpWindow(this._helpWindow);
-        this._skillWindow.setHandler('ok',     this.onSkillOk.bind(this));
+        this._skillWindow.setHandler('ok', this.onSkillOk.bind(this));
         this._skillWindow.setHandler('cancel', this.onSkillCancel.bind(this));
         this.addWindow(this._skillWindow);
     };
@@ -5165,7 +5200,7 @@ Window_WinLoseCondition.prototype.refresh = function() {
         var wh = Graphics.boxHeight - wy - this._mapSrpgActorCommandStatusWindow.windowHeight();
         this._itemWindow = new Window_BattleItem(0, wy, Graphics.boxWidth, wh);
         this._itemWindow.setHelpWindow(this._helpWindow);
-        this._itemWindow.setHandler('ok',     this.onItemOk.bind(this));
+        this._itemWindow.setHandler('ok', this.onItemOk.bind(this));
         this._itemWindow.setHandler('cancel', this.onItemCancel.bind(this));
         this.addWindow(this._itemWindow);
     };
@@ -5419,7 +5454,7 @@ Window_WinLoseCondition.prototype.refresh = function() {
         } else {
             battler.useSRPGActionTimes(1);
         }
-        
+
         $gameSystem.clearSrpgActorCommandWindowNeedRefresh();
         $gameSystem.clearSrpgActorCommandStatusWindowNeedRefresh();
         $gameTemp.clearMoveTable();
@@ -5822,31 +5857,31 @@ Window_WinLoseCondition.prototype.refresh = function() {
         var targetType = null;
         if (battler.isConfused() == true) {
             switch (battler.confusionLevel()) {
-            case 1:
-                if (type === 'enemy') {
-                    return 'actor';
-                } else if (type === 'actor') {
-                    return 'enemy';
-                }
-            case 2:
-                if (Math.randomInt(2) === 0) {
+                case 1:
                     if (type === 'enemy') {
                         return 'actor';
                     } else if (type === 'actor') {
                         return 'enemy';
                     }
-                }
-                if (type === 'enemy') {
-                    return 'enemy';
-                } else if (type === 'actor') {
-                    return 'actor';
-                }
-            default:
-                if (type === 'enemy') {
-                    return 'enemy';
-                } else if (type === 'actor') {
-                    return 'actor';
-                }
+                    case 2:
+                        if (Math.randomInt(2) === 0) {
+                            if (type === 'enemy') {
+                                return 'actor';
+                            } else if (type === 'actor') {
+                                return 'enemy';
+                            }
+                        }
+                        if (type === 'enemy') {
+                            return 'enemy';
+                        } else if (type === 'actor') {
+                            return 'actor';
+                        }
+                        default:
+                            if (type === 'enemy') {
+                                return 'enemy';
+                            } else if (type === 'actor') {
+                                return 'actor';
+                            }
             }
         }
         if (type === 'enemy' && battler.currentAction().isForOpponent()) {
@@ -5872,7 +5907,7 @@ Window_WinLoseCondition.prototype.refresh = function() {
         }
         // 対象をリストアップする：優先ターゲットが設定されている場合は、そのイベントのみリストに加える
         for (var i = 0; i < moveRangeList.length; i++) {
-            var pos =  moveRangeList[i];
+            var pos = moveRangeList[i];
             var events = $gameMap.eventsXyNt(pos[0], pos[1]);
             for (var j = 0; j < events.length; j++) {
                 var event = events[j];
@@ -5891,7 +5926,7 @@ Window_WinLoseCondition.prototype.refresh = function() {
         return targetList;
     };
 
-     //優先ターゲットの決定
+    //優先ターゲットの決定
     Scene_Map.prototype.srpgPriorityTarget = function(battler) {
         var event = null;
         if (battler.battleMode() === 'aimingEvent') {
@@ -5901,7 +5936,7 @@ Window_WinLoseCondition.prototype.refresh = function() {
             event = $gameMap.event(eventId1);
         }
         // ターゲットにしたeventが有効でない場合、優先ターゲットは設定しない
-        if (event) { 
+        if (event) {
             var targetBattlerArray = $gameSystem.EventToUnit(event.eventId());
             // 優先ターゲットが失われている場合、優先ターゲットは設定しない
             if (!(targetBattlerArray && targetBattlerArray[1].isAlive())) event = null;
@@ -5909,7 +5944,7 @@ Window_WinLoseCondition.prototype.refresh = function() {
         $gameTemp.setSrpgPriorityTarget(event);
     }
 
-     //ターゲットの決定
+    //ターゲットの決定
     Scene_Map.prototype.srpgDecideTarget = function(canAttackTargets, activeEvent, targetType) {
         var targetEvent = null;
         // 攻撃対象としうる相手がいない場合　
@@ -5929,7 +5964,7 @@ Window_WinLoseCondition.prototype.refresh = function() {
             // 攻撃対象としうる相手がいない場合　次いで最短距離にいる相手を設定する
             var minDis = 9999;
             var events = $gameMap.events();
-            for (var i = 0; i <  events.length; i++) {
+            for (var i = 0; i < events.length; i++) {
                 var event = events[i];
                 var dis = $gameSystem.unitDistance(activeEvent, event);
                 if (event.isType() === targetType && !event.isErased() && dis < minDis &&
@@ -5978,7 +6013,7 @@ Window_WinLoseCondition.prototype.refresh = function() {
 
     // 最適移動位置の探索
     Scene_Map.prototype.srpgSearchOptimalPos = function(targetEvent, battler, type) {
-        if ($gameTemp.isSrpgBestSearchRoute()[0] && 
+        if ($gameTemp.isSrpgBestSearchRoute()[0] &&
             !(battler.battleMode() === 'absRegionUp' || battler.battleMode() === 'absRegionDown')) {
             var route = $gameTemp.isSrpgBestSearchRoute()[1].slice(1, battler.srpgMove() + 1);
             for (var i = 0; i < battler.srpgMove() + 1; i++) {
@@ -5996,14 +6031,14 @@ Window_WinLoseCondition.prototype.refresh = function() {
                     }
                 }
                 if (pos[0] < 0) {
-                  pos[0] += $gameMap.width();
+                    pos[0] += $gameMap.width();
                 } else if (pos[0] >= $gameMap.width()) {
-                  pos[0] -= $gameMap.width();
+                    pos[0] -= $gameMap.width();
                 }
                 if (pos[1] < 0) {
-                  pos[1] += $gameMap.height();
+                    pos[1] += $gameMap.height();
                 } else if (pos[1] >= $gameMap.height()) {
-                  pos[1] -= $gameMap.height();
+                    pos[1] -= $gameMap.height();
                 }
                 if ($gameSystem.areTheyNoUnits(pos[0], pos[1], $gameTemp.activeEvent().isType()) == true) {
                     break;
@@ -6034,13 +6069,13 @@ Window_WinLoseCondition.prototype.refresh = function() {
                 for (var i = 0; i < list.length; i++) {
                     var pos = list[i];
                     if (pos[2] == false && $gameSystem.areTheyNoUnits(pos[0], pos[1], type)) {
-                        if ((battler.battleMode() === 'regionUp' || battler.battleMode() === 'absRegionUp') && 
+                        if ((battler.battleMode() === 'regionUp' || battler.battleMode() === 'absRegionUp') &&
                             $gameMap.regionId(pos[0], pos[1]) >= optimalResion) {
                             candidatePos = [];
                             optimalResion = $gameMap.regionId(pos[0], pos[1]);
                             candidatePos.push([pos[0], pos[1]]);
                         } else if ((battler.battleMode() === 'regionDown' || battler.battleMode() === 'absRegionDown') &&
-                                   $gameMap.regionId(pos[0], pos[1]) <= optimalResion) {
+                            $gameMap.regionId(pos[0], pos[1]) <= optimalResion) {
                             candidatePos = [];
                             optimalResion = $gameMap.regionId(pos[0], pos[1]);
                             candidatePos.push([pos[0], pos[1]]);
@@ -6052,9 +6087,9 @@ Window_WinLoseCondition.prototype.refresh = function() {
                 candidatePos.push([$gameTemp.activeEvent().posX(), $gameTemp.activeEvent().posY()]);
             }
         } else { // ターゲットがいる場合
-// 将来的な拡張
-//            if (battler.battleMode() === 'normal' || battler.battleMode() === 'stand' ||
-//            battler.battleMode() === 'regionUp' || battler.battleMode() === 'regionDown') {
+            // 将来的な拡張
+            //            if (battler.battleMode() === 'normal' || battler.battleMode() === 'stand' ||
+            //            battler.battleMode() === 'regionUp' || battler.battleMode() === 'regionDown') {
             for (var i = 0; i < list.length; i++) {
                 var pos = list[i];
                 if (pos[2] == false && $gameSystem.areTheyNoUnits(pos[0], pos[1], type)) {
@@ -6097,13 +6132,13 @@ Window_WinLoseCondition.prototype.refresh = function() {
                         } else if (battler.battleMode() === 'stand') {
                             candidatePos = [];
                             candidatePos.push([$gameTemp.activeEvent().posX(), $gameTemp.activeEvent().posY()]);
-                        } else if (battler.battleMode() === 'regionUp' && 
-                                   $gameMap.regionId(pos[0], pos[1]) >= optimalResion) {
+                        } else if (battler.battleMode() === 'regionUp' &&
+                            $gameMap.regionId(pos[0], pos[1]) >= optimalResion) {
                             candidatePos = [];
                             optimalResion = $gameMap.regionId(pos[0], pos[1]);
                             candidatePos.push([pos[0], pos[1]]);
                         } else if (battler.battleMode() === 'regionDown' &&
-                                   $gameMap.regionId(pos[0], pos[1]) <= optimalResion) {
+                            $gameMap.regionId(pos[0], pos[1]) <= optimalResion) {
                             candidatePos = [];
                             optimalResion = $gameMap.regionId(pos[0], pos[1]);
                             candidatePos.push([pos[0], pos[1]]);
@@ -6224,7 +6259,7 @@ Window_WinLoseCondition.prototype.refresh = function() {
 
     // 戦闘開始時に向きを修正する
     Scene_Map.prototype.preBattleSetDirection = function() {
-        if ($gameTemp.activeEvent() == $gameTemp.targetEvent()) return;  // 自分自身の時は向きを修正しない
+        if ($gameTemp.activeEvent() == $gameTemp.targetEvent()) return; // 自分自身の時は向きを修正しない
         var differenceX = $gameTemp.activeEvent().posX() - $gameTemp.targetEvent().posX();
         var differenceY = $gameTemp.activeEvent().posY() - $gameTemp.targetEvent().posY();
         if ($gameMap.isLoopHorizontal() == true) {
@@ -6300,9 +6335,9 @@ Window_WinLoseCondition.prototype.refresh = function() {
         }
     };
 
-//====================================================================
-// ●Scene_Menu
-//====================================================================
+    //====================================================================
+    // ●Scene_Menu
+    //====================================================================
     Scene_Menu.prototype.update = function() {
         Scene_Base.prototype.update.call(this);
         if (this._winLoseConditionWindow.isOpen()) this.updateWinLoseCondition();
@@ -6330,9 +6365,9 @@ Window_WinLoseCondition.prototype.refresh = function() {
     Scene_Menu.prototype.createCommandWindow = function() {
         _SRPG_SceneMenu_createCommandWindow.call(this);
         if ($gameSystem.isSRPGMode() == true) {
-            this._commandWindow.setHandler('turnEnd',this.commandTurnEnd.bind(this));
-            this._commandWindow.setHandler('autoBattle',this.commandAutoBattle.bind(this));
-            this._commandWindow.setHandler('winLoseCondition',this.commandWinLoseCondition.bind(this));
+            this._commandWindow.setHandler('turnEnd', this.commandTurnEnd.bind(this));
+            this._commandWindow.setHandler('autoBattle', this.commandAutoBattle.bind(this));
+            this._commandWindow.setHandler('winLoseCondition', this.commandWinLoseCondition.bind(this));
         }
     };
 
@@ -6353,9 +6388,9 @@ Window_WinLoseCondition.prototype.refresh = function() {
         this._winLoseConditionWindow.open();
     };
 
-//====================================================================
-// ●Scene_Equip
-//====================================================================
+    //====================================================================
+    // ●Scene_Equip
+    //====================================================================
     Scene_Equip.prototype.popScene = function() {
         if ($gameSystem.isSRPGMode() == true && $gameTemp.activeEvent()) {
             $gameTemp.setSrpgActorEquipFlag(true);
@@ -6363,9 +6398,9 @@ Window_WinLoseCondition.prototype.refresh = function() {
         SceneManager.pop();
     };
 
-//====================================================================
-// ●Scene_Load
-//====================================================================
+    //====================================================================
+    // ●Scene_Load
+    //====================================================================
     var _SRPG_Scene_Load_onLoadSuccess = Scene_Load.prototype.onLoadSuccess;
     Scene_Load.prototype.onLoadSuccess = function() {
         _SRPG_Scene_Load_onLoadSuccess.call(this);
@@ -6381,9 +6416,9 @@ Window_WinLoseCondition.prototype.refresh = function() {
         }
     };
 
-//====================================================================
-// ●BattleManager
-//====================================================================
+    //====================================================================
+    // ●BattleManager
+    //====================================================================
     //初期化
     var _SRPG_BattleManager_initMembers = BattleManager.initMembers;
     BattleManager.initMembers = function() {
@@ -6446,10 +6481,14 @@ Window_WinLoseCondition.prototype.refresh = function() {
             this._logWindow.push('pushBaseLine');
             if (Math.random() < this._action.itemCnt(target)) {
                 var attackSkill = $dataSkills[target.attackSkillId()];
-                if (target.canUse(attackSkill) == true) {
-                    this.invokeCounterAttack(subject, target);
+                if ($gameSystem.isSRPGMode() == true) {
+                    if (target.canUse(attackSkill) == true) {
+                        this.invokeCounterAttack(subject, target);
+                    } else {
+                        this.invokeNormalAction(subject, target);
+                    }
                 } else {
-                    this.invokeNormalAction(subject, target);
+                    this.invokeCounterAttack(subject, target);
                 }
             } else if (Math.random() < this._action.itemMrf(target)) {
                 this.invokeMagicReflection(subject, target);
@@ -6576,15 +6615,15 @@ Window_WinLoseCondition.prototype.refresh = function() {
         }
     };
 
-//====================================================================
-// ●Scene_Battle
-//====================================================================
+    //====================================================================
+    // ●Scene_Battle
+    //====================================================================
     // フェード速度を返す
     Scene_Battle.prototype.fadeSpeed = function() {
         if ($gameSystem.isSRPGMode() == true && _srpgBattleQuickLaunch == 'true') {
-           return 12;
+            return 12;
         } else {
-           return Scene_Base.prototype.fadeSpeed.call(this);
+            return Scene_Base.prototype.fadeSpeed.call(this);
         }
     };
 
@@ -6659,646 +6698,646 @@ Window_WinLoseCondition.prototype.refresh = function() {
         }
     };
 
-//====================================================================
-// Map Battle System
-//====================================================================
+    //====================================================================
+    // Map Battle System
+    //====================================================================
 
-//====================================================================
-// utility functions for finding unit events
-//====================================================================
+    //====================================================================
+    // utility functions for finding unit events
+    //====================================================================
 
-	// get the event for a general battler
-	Game_BattlerBase.prototype.event = function() {
-		var currentBattler = this;
-		var eventId = 0;
-		$gameSystem._EventToUnit.forEach(function (battleArray, index) {
-			if (battleArray && battleArray[1] === currentBattler) eventId = index;
-		});
-		return $gameMap.event(eventId);
-	};
+    // get the event for a general battler
+    Game_BattlerBase.prototype.event = function() {
+        var currentBattler = this;
+        var eventId = 0;
+        $gameSystem._EventToUnit.forEach(function(battleArray, index) {
+            if (battleArray && battleArray[1] === currentBattler) eventId = index;
+        });
+        return $gameMap.event(eventId);
+    };
 
-	// get the event for an actor specifically
-	Game_Actor.prototype.event = function() {
-		var currentActor = this.actorId();
-		var eventId = 0;
-		$gameSystem._EventToUnit.forEach(function (battleArray, index) {
-			if (battleArray && battleArray[1] === currentActor) eventId = index;
-		});
-		return $gameMap.event(eventId);
-	};
+    // get the event for an actor specifically
+    Game_Actor.prototype.event = function() {
+        var currentActor = this.actorId();
+        var eventId = 0;
+        $gameSystem._EventToUnit.forEach(function(battleArray, index) {
+            if (battleArray && battleArray[1] === currentActor) eventId = index;
+        });
+        return $gameMap.event(eventId);
+    };
 
-//====================================================================
-// process attacks directly on the map scene
-//====================================================================
+    //====================================================================
+    // process attacks directly on the map scene
+    //====================================================================
 
-	// force a specific style of battle for one exchange
-	Game_System.prototype.forceSRPGBattleMode = function(type) {
-		this._battleMode = type;
-	};
-	Game_System.prototype.clearSRPGBattleMode = function() {
-		this._battleMode = null;
-	};
+    // force a specific style of battle for one exchange
+    Game_System.prototype.forceSRPGBattleMode = function(type) {
+        this._battleMode = type;
+    };
+    Game_System.prototype.clearSRPGBattleMode = function() {
+        this._battleMode = null;
+    };
 
-	// control whether to use map battle or not
-	Game_System.prototype.useMapBattle = function() {
-		// forced mode
-		if (this._battleMode === 'map') return true;
-		else if (this._battleMode === 'normal') return false;
-		// system defaults
-		else if (_useMapBattle == 3) return true;
-		else if (_useMapBattle == 2 && ConfigManager['mapBattle'] == true) return true;
-		else if (_useMapBattle == 0) return false;
-		else return (_mapBattleSwitch > 0 && $gameSwitches.value(_mapBattleSwitch));
-	};
+    // control whether to use map battle or not
+    Game_System.prototype.useMapBattle = function() {
+        // forced mode
+        if (this._battleMode === 'map') return true;
+        else if (this._battleMode === 'normal') return false;
+        // system defaults
+        else if (_useMapBattle == 3) return true;
+        else if (_useMapBattle == 2 && ConfigManager['mapBattle'] == true) return true;
+        else if (_useMapBattle == 0) return false;
+        else return (_mapBattleSwitch > 0 && $gameSwitches.value(_mapBattleSwitch));
+    };
 
-	// set up the map attacks
-	var _srpgBattleStart_MB = Scene_Map.prototype.srpgBattleStart;
-	Scene_Map.prototype.srpgBattleStart = function(userArray, targetArray) {
-		// get the data
-		var user = userArray[1];
-		var target = targetArray[1];
-		var action = user.action(0);
-		var reaction = null;
+    // set up the map attacks
+    var _srpgBattleStart_MB = Scene_Map.prototype.srpgBattleStart;
+    Scene_Map.prototype.srpgBattleStart = function(userArray, targetArray) {
+        // get the data
+        var user = userArray[1];
+        var target = targetArray[1];
+        var action = user.action(0);
+        var reaction = null;
 
-		// check if we're using map battle on this skill
-		if (action && action.item()) {
-			var mapBattleTag = action.item().meta.mapBattle;
-			if (mapBattleTag == 'true') $gameSystem.forceSRPGBattleMode('map');
-			else if (mapBattleTag == 'false') $gameSystem.forceSRPGBattleMode('normal');
-		}
-		if (!$gameSystem.useMapBattle()) {
-			_srpgBattleStart_MB.call(this, userArray, targetArray);
-			return;
-		}
+        // check if we're using map battle on this skill
+        if (action && action.item()) {
+            var mapBattleTag = action.item().meta.mapBattle;
+            if (mapBattleTag == 'true') $gameSystem.forceSRPGBattleMode('map');
+            else if (mapBattleTag == 'false') $gameSystem.forceSRPGBattleMode('normal');
+        }
+        if (!$gameSystem.useMapBattle()) {
+            _srpgBattleStart_MB.call(this, userArray, targetArray);
+            return;
+        }
 
-		// prepare action timing
-		user.setActionTiming(0);
-		if (user != target) target.setActionTiming(1);
+        // prepare action timing
+        user.setActionTiming(0);
+        if (user != target) target.setActionTiming(1);
 
-		// pre-skill setup
-		$gameSystem.clearSrpgStatusWindowNeedRefresh();
-		$gameSystem.clearSrpgBattleWindowNeedRefresh();
+        // pre-skill setup
+        $gameSystem.clearSrpgStatusWindowNeedRefresh();
+        $gameSystem.clearSrpgBattleWindowNeedRefresh();
 
-		// make free actions work
-		var addActionTimes = Number(action.item().meta.addActionTimes || 0);
-		if (addActionTimes > 0) {
-			user.SRPGActionTimesAdd(addActionTimes);
-		}
+        // make free actions work
+        var addActionTimes = Number(action.item().meta.addActionTimes || 0);
+        if (addActionTimes > 0) {
+            user.SRPGActionTimesAdd(addActionTimes);
+        }
 
-		this.preBattleSetDirection();
-		this.eventBeforeBattle();
+        this.preBattleSetDirection();
+        this.eventBeforeBattle();
 
-		// set up the troop and the battle party
-		$gameTroop.clearSrpgBattleEnemys();
-		$gameTroop.clear();
-		$gameParty.clearSrpgBattleActors();
-		if (userArray[0] === 'enemy') $gameTroop.pushSrpgBattleEnemys(user);
-		else $gameParty.pushSrpgBattleActors(user);
-		if (targetArray[0] === 'enemy') $gameTroop.pushSrpgBattleEnemys(target);
-		else $gameParty.pushSrpgBattleActors(target);
-		BattleManager.setup(_srpgTroopID, false, true);
-		action.setSubject(user);
+        // set up the troop and the battle party
+        $gameTroop.clearSrpgBattleEnemys();
+        $gameTroop.clear();
+        $gameParty.clearSrpgBattleActors();
+        if (userArray[0] === 'enemy') $gameTroop.pushSrpgBattleEnemys(user);
+        else $gameParty.pushSrpgBattleActors(user);
+        if (targetArray[0] === 'enemy') $gameTroop.pushSrpgBattleEnemys(target);
+        else $gameParty.pushSrpgBattleActors(target);
+        BattleManager.setup(_srpgTroopID, false, true);
+        action.setSubject(user);
 
-		// queue the action
-		this.srpgAddMapSkill(action, user, target);
+        // queue the action
+        this.srpgAddMapSkill(action, user, target);
 
-		// queue up counterattack
-		if (userArray[0] !== targetArray[0] && target.canMove() && !action.item().meta.srpgUncounterable) {
-			target.srpgMakeNewActions();
-			reaction = target.action(0);
-			reaction.setSubject(target);
-			reaction.setAttack();
-			var actFirst = (reaction.speed() > action.speed());
-			if (_srpgUseAgiAttackPlus == 'true') actFirst = false;
-			this.srpgAddMapSkill(reaction, target, user, actFirst);
-		}
+        // queue up counterattack
+        if (userArray[0] !== targetArray[0] && target.canMove() && !action.item().meta.srpgUncounterable) {
+            target.srpgMakeNewActions();
+            reaction = target.action(0);
+            reaction.setSubject(target);
+            reaction.setAttack();
+            var actFirst = (reaction.speed() > action.speed());
+            if (_srpgUseAgiAttackPlus == 'true') actFirst = false;
+            this.srpgAddMapSkill(reaction, target, user, actFirst);
+        }
 
-                // agi attack plus
-                if (_srpgUseAgiAttackPlus == 'true') {
-                    if (user.agi >= target.agi) {
-                        var firstBattler = user;
-                        var secondBattler = target;
-                    } else {
-                        var firstBattler = target;
-                        var secondBattler = user;
-                    }
-                    if (!firstBattler.currentAction() || !firstBattler.currentAction().item()) {
-                        return;
-                    }
-                    if (firstBattler.currentAction().isForOpponent() &&
-                        !firstBattler.currentAction().item().meta.doubleAction) {
-                        var dif = firstBattler.agi - secondBattler.agi;
-                        var difMax = secondBattler.agi * _srpgAgilityAffectsRatio - secondBattler.agi;
-                        if (difMax == 0) {
-                            agilityRate = 100;
-                        } else {
-                            agilityRate = dif / difMax * 100;
-                        }
-                        if (agilityRate > Math.randomInt(100)) {
-                            var agiAction = firstBattler.action(0);
-                            this.srpgAddMapSkill(agiAction, firstBattler, secondBattler)
-                        }
-                    }
-                }
-	};
-
-	// work through the queue of attacks
-	var _SRPG_MB_SceneMap_update = Scene_Map.prototype.update;
-	Scene_Map.prototype.update = function() {
-		_SRPG_MB_SceneMap_update.call(this);
-
-		// there are definitely no map skills in play
-		if (!$gameSystem.isSRPGMode() || $gameSystem.isSubBattlePhase() !== 'invoke_action' ||
-		!$gameSystem.useMapBattle()) {
-			return;
-		}
-
-		// update map skills
-		if (!this.waitingForSkill() && !this._srpgBattleResultWindow.isChangeExp()) {
-			// process skills
-			while (this.srpgHasMapSkills() && !this.waitingForSkill()) {
-				this.srpgUpdateMapSkill();
-			}
-
-			// process the battle results window
-			if (!this.srpgHasMapSkills() && !this._srpgBattleResultWindow.isOpen() &&
-			!this._srpgBattleResultWindow.isOpening() && !this.isBusy()) {
-				if ($gameParty.battleMembers()[0] && $gameParty.battleMembers()[0].isAlive()) $gameParty.battleMembers()[0].onAllActionsEnd();
-				if ($gameParty.battleMembers()[1] && $gameParty.battleMembers()[1].isAlive()) $gameParty.battleMembers()[1].onAllActionsEnd();
-				if ($gameTroop.members()[0] && $gameTroop.members()[0].isAlive()) $gameTroop.members()[0].onAllActionsEnd();
-				if ($gameTroop.members()[1] && $gameTroop.members()[1].isAlive()) $gameTroop.members()[1].onAllActionsEnd();
-				var showResults = this.processSrpgVictory();
-				if (!showResults) $gameSystem.setSubBattlePhase('after_battle');
-			} else if (this._srpgBattleResultWindow.isOpen() &&
-			(Input.isPressed('ok') || Input.isPressed('cancel') ||
-			TouchInput.isPressed() || TouchInput.isCancelled())) {
-				this._srpgBattleResultWindow.close();
-				$gameSystem.setSubBattlePhase('after_battle');
-			}
-		} else {
-			// time-based waiting
-			this.updateSkillWait();
-		}
-	};
-
-	// reset battle mode between skills
-	var _srpgAfterAction = Scene_Map.prototype.srpgAfterAction;
-	Scene_Map.prototype.srpgAfterAction = function() {
-		$gameSystem.clearSRPGBattleMode();
-		_srpgAfterAction.call(this);
-	};
-
-	// time-based skill wait!
-	Scene_Map.prototype.setSkillWait = function(time) {
-		this._skillWait = time;
-	};
-	Scene_Map.prototype.updateSkillWait = function() {
-		if (this._skillWait > 0) this._skillWait--;
-	};
-	Scene_Map.prototype.resetSkillWait = function() {
-		this._skillWait = undefined;
-	};
-	Scene_Map.prototype.skillWait = function() {
-		return this._skillWait || 0;
-	};
-	Scene_Map.prototype.skillAnimWait = function() {
-		return (this._skillWait == undefined);
-	};
-
-	// check if we're still waiting for a skill to finish
-	Scene_Map.prototype.waitingForSkill = function() {
-		if ($gameTemp.isCommonEventReserved()) return true;
-
-		if ($gamePlayer.isAnimationPlaying() || !$gamePlayer.isStopping() ||
-		$gameTemp.isAutoMoveDestinationValid()) return true;
-
-		if (this.skillAnimWait()) {
-			var active = $gameTemp.activeEvent();
-			if (active.isAnimationPlaying() || !active.isStopping()) return true;
-
-			var target = $gameTemp.targetEvent();
-			if (!target) return false;
-			if (target.isAnimationPlaying() || !target.isStopping()) return true;
-		} else if (this.skillWait() > 0) return true;
-
-		return false;
-	};
-
-	// no moving during a skill!
-	var _Game_Player_MB_canMove = Game_Player.prototype.canMove;
-	Game_Player.prototype.canMove = function() {
-		if ($gameSystem.isSRPGMode() && $gameSystem.isSubBattlePhase() === 'invoke_action') {
-			return false;
-		}
-		return _Game_Player_MB_canMove.call(this);
-	};
-
-	// no pausing, either!
-	var _updateCallMenu_MB = Scene_Map.prototype.updateCallMenu;
-	Scene_Map.prototype.updateCallMenu = function() {
-		if ($gameSystem.isSRPGMode() && $gameSystem.isSubBattlePhase() === 'invoke_action') {
-			this.menuCalling = false;
-			return;
-		}
-		_updateCallMenu_MB.call(this);
-	};
-
-//====================================================================
-// queue of skills being executed on the map
-//====================================================================
-
-	// queue up a skill for the on-map battle
-	Scene_Map.prototype.srpgAddMapSkill = function(action, user, target, addToFront) {
-		this._srpgSkillList = this._srpgSkillList || [];
-                if (_AAPwithYEP_BattleEngineCore == 'false') {
-			var data = {
-				action: action,
-				user: user,
-				target: target,
-				phase: 'start',
-				count: action.numRepeats(),
-			};
+        // agi attack plus
+        if (_srpgUseAgiAttackPlus == 'true') {
+            if (user.agi >= target.agi) {
+                var firstBattler = user;
+                var secondBattler = target;
+            } else {
+                var firstBattler = target;
+                var secondBattler = user;
+            }
+            if (!firstBattler.currentAction() || !firstBattler.currentAction().item()) {
+                return;
+            }
+            if (firstBattler.currentAction().isForOpponent() &&
+                !firstBattler.currentAction().item().meta.doubleAction) {
+                var dif = firstBattler.agi - secondBattler.agi;
+                var difMax = secondBattler.agi * _srpgAgilityAffectsRatio - secondBattler.agi;
+                if (difMax == 0) {
+                    agilityRate = 100;
                 } else {
-			var data = {
-				action: action,
-				user: user,
-				target: target,
-				phase: 'start',
-				count: action.numRepeats() + action.item()._srpgRepeats,
-			};
+                    agilityRate = dif / difMax * 100;
                 }
-		if (addToFront) this._srpgSkillList.unshift(data);
-		else this._srpgSkillList.push(data);
-	};
+                if (agilityRate > Math.randomInt(100)) {
+                    var agiAction = firstBattler.action(0);
+                    this.srpgAddMapSkill(agiAction, firstBattler, secondBattler)
+                }
+            }
+        }
+    };
 
-	// build the physical counter attack
-	Scene_Map.prototype.srpgAddCounterAttack = function(user, target) {
-		target.srpgMakeNewActions();
-		target.action(0).setSubject(target);
-		target.action(0).setAttack();
-		this.srpgAddMapSkill(target.action(0), target, user, true);
-		this._srpgSkillList[0].counter = true;
-	};
+    // work through the queue of attacks
+    var _SRPG_MB_SceneMap_update = Scene_Map.prototype.update;
+    Scene_Map.prototype.update = function() {
+        _SRPG_MB_SceneMap_update.call(this);
 
-	// check how many skills are left on the queue
-	Scene_Map.prototype.srpgHasMapSkills = function() {
-		this._srpgSkillList = this._srpgSkillList || [];
-		return this._srpgSkillList.length;
-	};
+        // there are definitely no map skills in play
+        if (!$gameSystem.isSRPGMode() || $gameSystem.isSubBattlePhase() !== 'invoke_action' ||
+            !$gameSystem.useMapBattle()) {
+            return;
+        }
 
-	// clear all enqueued skills
-	Scene_Map.prototype.srpgClearMapSkills = function() {
-		this._srpgSkillList = this._srpgSkillList || [];
-		this._srpgSkillList.clear();
-	};
+        // update map skills
+        if (!this.waitingForSkill() && !this._srpgBattleResultWindow.isChangeExp()) {
+            // process skills
+            while (this.srpgHasMapSkills() && !this.waitingForSkill()) {
+                this.srpgUpdateMapSkill();
+            }
 
-	// get the next skill off the queue and invoke it
-	Scene_Map.prototype.srpgUpdateMapSkill = function() {
-		this._srpgSkillList = this._srpgSkillList || [];
-		var data = this._srpgSkillList.shift();
-		if (!data) return false;
-		return this.srpgInvokeMapSkill(data);
-	};
+            // process the battle results window
+            if (!this.srpgHasMapSkills() && !this._srpgBattleResultWindow.isOpen() &&
+                !this._srpgBattleResultWindow.isOpening() && !this.isBusy()) {
+                if ($gameParty.battleMembers()[0] && $gameParty.battleMembers()[0].isAlive()) $gameParty.battleMembers()[0].onAllActionsEnd();
+                if ($gameParty.battleMembers()[1] && $gameParty.battleMembers()[1].isAlive()) $gameParty.battleMembers()[1].onAllActionsEnd();
+                if ($gameTroop.members()[0] && $gameTroop.members()[0].isAlive()) $gameTroop.members()[0].onAllActionsEnd();
+                if ($gameTroop.members()[1] && $gameTroop.members()[1].isAlive()) $gameTroop.members()[1].onAllActionsEnd();
+                var showResults = this.processSrpgVictory();
+                if (!showResults) $gameSystem.setSubBattlePhase('after_battle');
+            } else if (this._srpgBattleResultWindow.isOpen() &&
+                (Input.isPressed('ok') || Input.isPressed('cancel') ||
+                    TouchInput.isPressed() || TouchInput.isCancelled())) {
+                this._srpgBattleResultWindow.close();
+                $gameSystem.setSubBattlePhase('after_battle');
+            }
+        } else {
+            // time-based waiting
+            this.updateSkillWait();
+        }
+    };
 
-	// invoke skill effects
-	Scene_Map.prototype.srpgInvokeMapSkill = function(data) {
-		var action = data.action;
-		var user = data.user;
-		var target = data.target;
+    // reset battle mode between skills
+    var _srpgAfterAction = Scene_Map.prototype.srpgAfterAction;
+    Scene_Map.prototype.srpgAfterAction = function() {
+        $gameSystem.clearSRPGBattleMode();
+        _srpgAfterAction.call(this);
+    };
 
-		switch (data.phase) {
-			// skill cost and casting animations
-			case 'start':
-				if (!user.canMove() || !user.canUse(action.item()) || !target.isAlive()) {
-					data.phase = 'cancel';
-					this._srpgSkillList.unshift(data);
-					break;
-				}
-				user.useItem(action.item());
-				if (!$gameTemp.isFirstAction || $gameTemp.isFirstAction()) {
-					var castAnim = false;
-					// cast animation, is a skill, isn't an attack or guard
-					if (action.item().castAnimation && action.isSkill() && !action.isAttack() && !action.isGuard()) {
-						user.event().requestAnimation(action.item().castAnimation);
-						castAnim = true;
-					}
-					// target animation
-					if (action.item().meta.targetAnimation) {
-						$gamePlayer.requestAnimation(Number(action.item().meta.targetAnimation));
-						castAnim = true;
-					}
-					// directional target animation
-					if (action.item().meta.directionalAnimation) {
-						var dir = user.event().direction()/2 - 1;
-						$gamePlayer.requestAnimation(dir + Number(action.item().meta.directionalAnimation));
-						castAnim = true;
-					}
-				}
-				// check for reflection
-				if (user != target && Math.random() < action.itemMrf(target)) {
-					data.phase = 'reflect';
-				} else {
-					data.phase = 'animation';
-				}
-				this._srpgSkillList.unshift(data);
-				break;
+    // time-based skill wait!
+    Scene_Map.prototype.setSkillWait = function(time) {
+        this._skillWait = time;
+    };
+    Scene_Map.prototype.updateSkillWait = function() {
+        if (this._skillWait > 0) this._skillWait--;
+    };
+    Scene_Map.prototype.resetSkillWait = function() {
+        this._skillWait = undefined;
+    };
+    Scene_Map.prototype.skillWait = function() {
+        return this._skillWait || 0;
+    };
+    Scene_Map.prototype.skillAnimWait = function() {
+        return (this._skillWait == undefined);
+    };
 
-			// reflected magic
-			case 'reflect':
-				target.performReflection();
-				if (target.reflectAnimationId) {
-					target.event().requestAnimation(target.reflectAnimationId());
-				}
-				data.target = user;
-				data.phase = 'animation';
-				this._srpgSkillList.unshift(data);
-				break;
+    // check if we're still waiting for a skill to finish
+    Scene_Map.prototype.waitingForSkill = function() {
+        if ($gameTemp.isCommonEventReserved()) return true;
 
-			// show skill animation
-			case 'animation':
-				var animation = action.item().animationId;
-				if (animation < 0) animation = (user.isActor() ? user.attackAnimationId1() : user.attackAnimationId());
-				target.event().requestAnimation(animation);
-				data.phase = 'effect';
-				this._srpgSkillList.unshift(data);
-				// time-based delay
-				var delay = _animDelay;
-				if (action.item().meta.animationDelay) delay = Number(action.item().meta.animationDelay);
-				if (delay >= 0) this.setSkillWait(delay);
-				break;
+        if ($gamePlayer.isAnimationPlaying() || !$gamePlayer.isStopping() ||
+            $gameTemp.isAutoMoveDestinationValid()) return true;
 
-			// apply skill effects
-			case 'effect':
-				// skill effect repeats
-				data.count--;
-				if (data.count > 0) {
-					data.phase = 'animation';
-				} else {
-					data.phase = 'global';
-				}
-				this._srpgSkillList.unshift(data);
-				this.resetSkillWait();
+        if (this.skillAnimWait()) {
+            var active = $gameTemp.activeEvent();
+            if (active.isAnimationPlaying() || !active.isStopping()) return true;
 
-				// apply effects or trigger a counter
-				if (!data.counter && user != target && Math.random() < action.itemCnt(target)) {
-					var attackSkill = $dataSkills[target.attackSkillId()];
-					if (target.canUse(attackSkill) == true) {
-						target.performCounter();
-						this.srpgAddCounterAttack(user, target);
-					} else {
-						action.apply(target);
-					}
-				} else {
-					action.apply(target);
-				}
-				break;
+            var target = $gameTemp.targetEvent();
+            if (!target) return false;
+            if (target.isAnimationPlaying() || !target.isStopping()) return true;
+        } else if (this.skillWait() > 0) return true;
 
-			// run the common events and such
-			case 'global':
-				action.applyGlobal();
-				data.phase = 'end';
-				this._srpgSkillList.unshift(data);
-				break;
+        return false;
+    };
 
-			// clean up at the end
-			case 'cancel':
-			case 'end':
-				user.setLastTarget(target);
-				user.removeCurrentAction();
-				this._waitCount = 30;
-				break;
-		}
+    // no moving during a skill!
+    var _Game_Player_MB_canMove = Game_Player.prototype.canMove;
+    Game_Player.prototype.canMove = function() {
+        if ($gameSystem.isSRPGMode() && $gameSystem.isSubBattlePhase() === 'invoke_action') {
+            return false;
+        }
+        return _Game_Player_MB_canMove.call(this);
+    };
 
-		// Show the results
-		user.srpgShowResults();
-		target.srpgShowResults();
-		return true;
-	};
+    // no pausing, either!
+    var _updateCallMenu_MB = Scene_Map.prototype.updateCallMenu;
+    Scene_Map.prototype.updateCallMenu = function() {
+        if ($gameSystem.isSRPGMode() && $gameSystem.isSubBattlePhase() === 'invoke_action') {
+            this.menuCalling = false;
+            return;
+        }
+        _updateCallMenu_MB.call(this);
+    };
 
-	// show the results of the action
-	Game_BattlerBase.prototype.srpgShowResults = function() {
-		var result = this.result();
-		// ways to hit
-		if (result.isHit()) {
-			if (result.hpDamage > 0 && !result.drain) this.performDamage();
-			if (result.hpDamage < 0 || result.mpDamage < 0 || result.tpDamage < 0) this.performRecovery();
-			var target = this;
-			result.addedStateObjects().forEach(function(state) {
-				if (state.id === target.deathStateId()) target.performCollapse();
-			});
-		}
-		// ways to miss
-		else {
-			if (result.missed) this.performMiss();
-			if (result.evaded && result.physical) this.performEvasion();
-			if (result.evaded && !result.physical) this.performMagicEvasion();
-		}
-		// show pop-ups
-		this.startDamagePopup();
-	};
+    //====================================================================
+    // queue of skills being executed on the map
+    //====================================================================
 
-//====================================================================
-// Handle battle rewards
-//====================================================================
+    // queue up a skill for the on-map battle
+    Scene_Map.prototype.srpgAddMapSkill = function(action, user, target, addToFront) {
+        this._srpgSkillList = this._srpgSkillList || [];
+        if (_AAPwithYEP_BattleEngineCore == 'false') {
+            var data = {
+                action: action,
+                user: user,
+                target: target,
+                phase: 'start',
+                count: action.numRepeats(),
+            };
+        } else {
+            var data = {
+                action: action,
+                user: user,
+                target: target,
+                phase: 'start',
+                count: action.numRepeats() + action.item()._srpgRepeats,
+            };
+        }
+        if (addToFront) this._srpgSkillList.unshift(data);
+        else this._srpgSkillList.push(data);
+    };
 
-	// add "rewards" object to the map scene
-	var _scene_map_initialize_MB = Scene_Map.prototype.initialize;
-	Scene_Map.prototype.initialize = function() {
-		_scene_map_initialize_MB.call(this);
-		this._rewards = {};
-	};
+    // build the physical counter attack
+    Scene_Map.prototype.srpgAddCounterAttack = function(user, target) {
+        target.srpgMakeNewActions();
+        target.action(0).setSubject(target);
+        target.action(0).setAttack();
+        this.srpgAddMapSkill(target.action(0), target, user, true);
+        this._srpgSkillList[0].counter = true;
+    };
 
-	// properly initialize, even without a battler
-	Window_SrpgBattleResult.prototype.initialize = function(battler) {
-		var width = this.windowWidth();
-		var height = this.windowHeight();
-		var x = (Graphics.boxWidth - width) / 2;
-		var y = Graphics.boxHeight / 2 - height;
-		this.setBattler(battler);
-		this._rewards = null;
-		this._changeExp = 0;
-		Window_Base.prototype.initialize.call(this, x, y, width, height);
-	};
+    // check how many skills are left on the queue
+    Scene_Map.prototype.srpgHasMapSkills = function() {
+        this._srpgSkillList = this._srpgSkillList || [];
+        return this._srpgSkillList.length;
+    };
 
-	// update the battler between showings of the window
-	Window_SrpgBattleResult.prototype.setBattler = function(battler) {
-		this._battler = battler;
-		if (battler) {
-			this._reserveExp = this._battler.currentExp();
-			this._level = this._battler.level;
-		} else {
-			this._reserveExp = 0;
-			this._level = 0;
-		}
-	};
+    // clear all enqueued skills
+    Scene_Map.prototype.srpgClearMapSkills = function() {
+        this._srpgSkillList = this._srpgSkillList || [];
+        this._srpgSkillList.clear();
+    };
 
-	// put a results window in the scene
-	var _scene_map_createAllWindows_MB = Scene_Map.prototype.createAllWindows;
-	Scene_Map.prototype.createAllWindows = function() {
-		_scene_map_createAllWindows_MB.call(this);
-		this.createSrpgBattleResultWindow();
-	};
-	Scene_Map.prototype.createSrpgBattleResultWindow = function() {
-		this._srpgBattleResultWindow = new Window_SrpgBattleResult($gameParty.battleMembers()[0]);
-		this._srpgBattleResultWindow.openness = 0;
-		this.addWindow(this._srpgBattleResultWindow);
-	};
+    // get the next skill off the queue and invoke it
+    Scene_Map.prototype.srpgUpdateMapSkill = function() {
+        this._srpgSkillList = this._srpgSkillList || [];
+        var data = this._srpgSkillList.shift();
+        if (!data) return false;
+        return this.srpgInvokeMapSkill(data);
+    };
 
-	// use all the existing code for rewards, so it can inherit plugin modifications
-	Scene_Map.prototype.makeRewards = BattleManager.makeRewards;
-	Scene_Map.prototype.gainRewards = BattleManager.gainRewards;
-	Scene_Map.prototype.gainExp = BattleManager.gainExp;
-	Scene_Map.prototype.gainGold = BattleManager.gainGold;
-	Scene_Map.prototype.gainDropItems = BattleManager.gainDropItems;
+    // invoke skill effects
+    Scene_Map.prototype.srpgInvokeMapSkill = function(data) {
+        var action = data.action;
+        var user = data.user;
+        var target = data.target;
 
-	// process victory
-	Scene_Map.prototype.processSrpgVictory = function() {
-		if ($gameParty.battleMembers()[0] && $gameParty.battleMembers()[0].isAlive()) {
-			this.makeRewards();
-			if (this._rewards.exp > 0 || this._rewards.gold > 0 || this._rewards.items.length > 0) {
-				this._srpgBattleResultWindow.setBattler($gameParty.battleMembers()[0]);
-				this._srpgBattleResultWindow.setRewards(this._rewards);
-				var se = {};
-				se.name = _rewardSe;
-				se.pan = 0;
-				se.pitch = 100;
-				se.volume = 90;
-				AudioManager.playSe(se);
-				this._srpgBattleResultWindow.open();
-				this.gainRewards();
-				return true;
-			}
-			return false;
-		}
-	};
+        switch (data.phase) {
+            // skill cost and casting animations
+            case 'start':
+                if (!user.canMove() || !user.canUse(action.item()) || !target.isAlive()) {
+                    data.phase = 'cancel';
+                    this._srpgSkillList.unshift(data);
+                    break;
+                }
+                user.useItem(action.item());
+                if (!$gameTemp.isFirstAction || $gameTemp.isFirstAction()) {
+                    var castAnim = false;
+                    // cast animation, is a skill, isn't an attack or guard
+                    if (action.item().castAnimation && action.isSkill() && !action.isAttack() && !action.isGuard()) {
+                        user.event().requestAnimation(action.item().castAnimation);
+                        castAnim = true;
+                    }
+                    // target animation
+                    if (action.item().meta.targetAnimation) {
+                        $gamePlayer.requestAnimation(Number(action.item().meta.targetAnimation));
+                        castAnim = true;
+                    }
+                    // directional target animation
+                    if (action.item().meta.directionalAnimation) {
+                        var dir = user.event().direction() / 2 - 1;
+                        $gamePlayer.requestAnimation(dir + Number(action.item().meta.directionalAnimation));
+                        castAnim = true;
+                    }
+                }
+                // check for reflection
+                if (user != target && Math.random() < action.itemMrf(target)) {
+                    data.phase = 'reflect';
+                } else {
+                    data.phase = 'animation';
+                }
+                this._srpgSkillList.unshift(data);
+                break;
 
-//====================================================================
-// show popups for tile and status damage
-//====================================================================
+                // reflected magic
+            case 'reflect':
+                target.performReflection();
+                if (target.reflectAnimationId) {
+                    target.event().requestAnimation(target.reflectAnimationId());
+                }
+                data.target = user;
+                data.phase = 'animation';
+                this._srpgSkillList.unshift(data);
+                break;
 
-	// show pop-up for regeneration
-	var _battler_regenerateAll_MB = Game_Battler.prototype.regenerateAll;
-	Game_Battler.prototype.regenerateAll = function() {
-		_battler_regenerateAll_MB.call(this);
-		if ($gameSystem.isSRPGMode()) {
-			this._result.used = true;
-			this.srpgShowResults();
-		}
-	};
+                // show skill animation
+            case 'animation':
+                var animation = action.item().animationId;
+                if (animation < 0) animation = (user.isActor() ? user.attackAnimationId1() : user.attackAnimationId());
+                target.event().requestAnimation(animation);
+                data.phase = 'effect';
+                this._srpgSkillList.unshift(data);
+                // time-based delay
+                var delay = _animDelay;
+                if (action.item().meta.animationDelay) delay = Number(action.item().meta.animationDelay);
+                if (delay >= 0) this.setSkillWait(delay);
+                break;
 
-	// show pop-up for floor damage
-	var _srpgExecuteFloorDamage_MB = Game_Battler.prototype.srpgExecuteFloorDamage;
-	Game_Battler.prototype.srpgExecuteFloorDamage = function() {
-		_srpgExecuteFloorDamage_MB.call(this);
-		if (this._result.hpDamage != 0) {
-			this._result.used = true;
-			this.srpgShowResults();
-		}
-	};
+                // apply skill effects
+            case 'effect':
+                // skill effect repeats
+                data.count--;
+                if (data.count > 0) {
+                    data.phase = 'animation';
+                } else {
+                    data.phase = 'global';
+                }
+                this._srpgSkillList.unshift(data);
+                this.resetSkillWait();
 
-	// suppress the screen flash from damage in SRPG mode
-	var _startFlashForDamage_MB = Game_Screen.prototype.startFlashForDamage;
-	Game_Screen.prototype.startFlashForDamage = function() {
-		if (!$gameSystem.isSRPGMode()) _startFlashForDamage_MB.call(this);
-	};
+                // apply effects or trigger a counter
+                if (!data.counter && user != target && Math.random() < action.itemCnt(target)) {
+                    var attackSkill = $dataSkills[target.attackSkillId()];
+                    if (target.canUse(attackSkill) == true) {
+                        target.performCounter();
+                        this.srpgAddCounterAttack(user, target);
+                    } else {
+                        action.apply(target);
+                    }
+                } else {
+                    action.apply(target);
+                }
+                break;
 
-//====================================================================
-// on-map damage pop-ups
-//====================================================================
+                // run the common events and such
+            case 'global':
+                action.applyGlobal();
+                data.phase = 'end';
+                this._srpgSkillList.unshift(data);
+                break;
 
-	// initialize the damage popups
-	var _sprite_character_initMembers_MB = Sprite_Character.prototype.initMembers;
-	Sprite_Character.prototype.initMembers = function() {
-		_sprite_character_initMembers_MB.call(this);
-		this._damages = [];
-	};
+                // clean up at the end
+            case 'cancel':
+            case 'end':
+                user.setLastTarget(target);
+                user.removeCurrentAction();
+                this._waitCount = 30;
+                break;
+        }
 
-	// update the damage popups
-	var _sprite_character_update_MB = Sprite_Character.prototype.update;
-	Sprite_Character.prototype.update = function (){
-		_sprite_character_update_MB.call(this);
-		if (this._character.isEvent()) {
-			this.updateDamagePopup_MB();
-		}
-	};
+        // Show the results
+        user.srpgShowResults();
+        target.srpgShowResults();
+        return true;
+    };
 
-	// update the damage pop-ups each frame
-	Sprite_Character.prototype.updateDamagePopup_MB = function() {
-		this.setupDamagePopup_MB();
-		if (this._damages.length > 0) {
-			for (var i = 0; i < this._damages.length; i++) {
-				this._damages[i].update();
-			}
-			if (!this._damages[0].isPlaying()) {
-				this.parent.removeChild(this._damages[0]);
-				this._damages.shift();
-			}
-		}
-	};
+    // show the results of the action
+    Game_BattlerBase.prototype.srpgShowResults = function() {
+        var result = this.result();
+        // ways to hit
+        if (result.isHit()) {
+            if (result.hpDamage > 0 && !result.drain) this.performDamage();
+            if (result.hpDamage < 0 || result.mpDamage < 0 || result.tpDamage < 0) this.performRecovery();
+            var target = this;
+            result.addedStateObjects().forEach(function(state) {
+                if (state.id === target.deathStateId()) target.performCollapse();
+            });
+        }
+        // ways to miss
+        else {
+            if (result.missed) this.performMiss();
+            if (result.evaded && result.physical) this.performEvasion();
+            if (result.evaded && !result.physical) this.performMagicEvasion();
+        }
+        // show pop-ups
+        this.startDamagePopup();
+    };
 
-	// create the damage pop-up
-	Sprite_Character.prototype.setupDamagePopup_MB = function() {
-		var array = $gameSystem.EventToUnit(this._character.eventId());
-		if ($gameSystem.isSRPGMode() && array && array[1]) {
-			var battler = array[1];
-			if (battler.isDamagePopupRequested()) {
-				var sprite = new Sprite_Damage();
-				sprite.x = this.x;
-				sprite.y = this.y;
-				sprite.z = 9;
-				sprite.setup(battler);
-				this._damages.push(sprite);
-				this.parent.addChild(sprite);;
-			}
-			battler.clearDamagePopup();
-			battler.clearResult();
-		}
-	};
+    //====================================================================
+    // Handle battle rewards
+    //====================================================================
 
-//====================================================================
-// compatability overrides
-//====================================================================
+    // add "rewards" object to the map scene
+    var _scene_map_initialize_MB = Scene_Map.prototype.initialize;
+    Scene_Map.prototype.initialize = function() {
+        _scene_map_initialize_MB.call(this);
+        this._rewards = {};
+    };
 
-	// track intended repeats from before BattleEngineCore
-	if (DataManager.addActionEffects) {
-		var _addActionEffects = DataManager.addActionEffects;
-		DataManager.addActionEffects = function(obj, array) {
-			var initialRepeats = obj.repeats;
-			_addActionEffects.call(this, obj, array);
-			obj._srpgRepeats = initialRepeats - obj.repeats;
-		};
-	}
+    // properly initialize, even without a battler
+    Window_SrpgBattleResult.prototype.initialize = function(battler) {
+        var width = this.windowWidth();
+        var height = this.windowHeight();
+        var x = (Graphics.boxWidth - width) / 2;
+        var y = Graphics.boxHeight / 2 - height;
+        this.setBattler(battler);
+        this._rewards = null;
+        this._changeExp = 0;
+        Window_Base.prototype.initialize.call(this, x, y, width, height);
+    };
 
-//====================================================================
-// Config
-//====================================================================
-ConfigManager.mapBattle = false;
+    // update the battler between showings of the window
+    Window_SrpgBattleResult.prototype.setBattler = function(battler) {
+        this._battler = battler;
+        if (battler) {
+            this._reserveExp = this._battler.currentExp();
+            this._level = this._battler.level;
+        } else {
+            this._reserveExp = 0;
+            this._level = 0;
+        }
+    };
 
-var _MB_ConfigManager_makeData = ConfigManager.makeData;
-ConfigManager.makeData = function() {
-    var config = _MB_ConfigManager_makeData.call(this);
-    config.mapBattle = this.mapBattle;
-    return config;
-};
+    // put a results window in the scene
+    var _scene_map_createAllWindows_MB = Scene_Map.prototype.createAllWindows;
+    Scene_Map.prototype.createAllWindows = function() {
+        _scene_map_createAllWindows_MB.call(this);
+        this.createSrpgBattleResultWindow();
+    };
+    Scene_Map.prototype.createSrpgBattleResultWindow = function() {
+        this._srpgBattleResultWindow = new Window_SrpgBattleResult($gameParty.battleMembers()[0]);
+        this._srpgBattleResultWindow.openness = 0;
+        this.addWindow(this._srpgBattleResultWindow);
+    };
 
-var _MB_ConfigManager_applyData = ConfigManager.applyData;
-ConfigManager.applyData = function(config) {
-    _MB_ConfigManager_applyData.call(this, config);
-    this.mapBattle = this.readFlag(config, 'mapBattle');
-};
+    // use all the existing code for rewards, so it can inherit plugin modifications
+    Scene_Map.prototype.makeRewards = BattleManager.makeRewards;
+    Scene_Map.prototype.gainRewards = BattleManager.gainRewards;
+    Scene_Map.prototype.gainExp = BattleManager.gainExp;
+    Scene_Map.prototype.gainGold = BattleManager.gainGold;
+    Scene_Map.prototype.gainDropItems = BattleManager.gainDropItems;
 
-var _MB_Window_Options_addGeneralOptions = Window_Options.prototype.addGeneralOptions;
-Window_Options.prototype.addGeneralOptions = function() {
-    _MB_Window_Options_addGeneralOptions.call(this);
-    if (_useMapBattle == 2) this.addCommand('マップバトル', 'mapBattle');
-};
+    // process victory
+    Scene_Map.prototype.processSrpgVictory = function() {
+        if ($gameParty.battleMembers()[0] && $gameParty.battleMembers()[0].isAlive()) {
+            this.makeRewards();
+            if (this._rewards.exp > 0 || this._rewards.gold > 0 || this._rewards.items.length > 0) {
+                this._srpgBattleResultWindow.setBattler($gameParty.battleMembers()[0]);
+                this._srpgBattleResultWindow.setRewards(this._rewards);
+                var se = {};
+                se.name = _rewardSe;
+                se.pan = 0;
+                se.pitch = 100;
+                se.volume = 90;
+                AudioManager.playSe(se);
+                this._srpgBattleResultWindow.open();
+                this.gainRewards();
+                return true;
+            }
+            return false;
+        }
+    };
 
-//====================================================================
-// ●SRPG_AgiAttackPlus
-//====================================================================
-//====================================================================
-// ●Game_Action
-//====================================================================
+    //====================================================================
+    // show popups for tile and status damage
+    //====================================================================
+
+    // show pop-up for regeneration
+    var _battler_regenerateAll_MB = Game_Battler.prototype.regenerateAll;
+    Game_Battler.prototype.regenerateAll = function() {
+        _battler_regenerateAll_MB.call(this);
+        if ($gameSystem.isSRPGMode()) {
+            this._result.used = true;
+            this.srpgShowResults();
+        }
+    };
+
+    // show pop-up for floor damage
+    var _srpgExecuteFloorDamage_MB = Game_Battler.prototype.srpgExecuteFloorDamage;
+    Game_Battler.prototype.srpgExecuteFloorDamage = function() {
+        _srpgExecuteFloorDamage_MB.call(this);
+        if (this._result.hpDamage != 0) {
+            this._result.used = true;
+            this.srpgShowResults();
+        }
+    };
+
+    // suppress the screen flash from damage in SRPG mode
+    var _startFlashForDamage_MB = Game_Screen.prototype.startFlashForDamage;
+    Game_Screen.prototype.startFlashForDamage = function() {
+        if (!$gameSystem.isSRPGMode()) _startFlashForDamage_MB.call(this);
+    };
+
+    //====================================================================
+    // on-map damage pop-ups
+    //====================================================================
+
+    // initialize the damage popups
+    var _sprite_character_initMembers_MB = Sprite_Character.prototype.initMembers;
+    Sprite_Character.prototype.initMembers = function() {
+        _sprite_character_initMembers_MB.call(this);
+        this._damages = [];
+    };
+
+    // update the damage popups
+    var _sprite_character_update_MB = Sprite_Character.prototype.update;
+    Sprite_Character.prototype.update = function() {
+        _sprite_character_update_MB.call(this);
+        if (this._character.isEvent()) {
+            this.updateDamagePopup_MB();
+        }
+    };
+
+    // update the damage pop-ups each frame
+    Sprite_Character.prototype.updateDamagePopup_MB = function() {
+        this.setupDamagePopup_MB();
+        if (this._damages.length > 0) {
+            for (var i = 0; i < this._damages.length; i++) {
+                this._damages[i].update();
+            }
+            if (!this._damages[0].isPlaying()) {
+                this.parent.removeChild(this._damages[0]);
+                this._damages.shift();
+            }
+        }
+    };
+
+    // create the damage pop-up
+    Sprite_Character.prototype.setupDamagePopup_MB = function() {
+        var array = $gameSystem.EventToUnit(this._character.eventId());
+        if ($gameSystem.isSRPGMode() && array && array[1]) {
+            var battler = array[1];
+            if (battler.isDamagePopupRequested()) {
+                var sprite = new Sprite_Damage();
+                sprite.x = this.x;
+                sprite.y = this.y;
+                sprite.z = 9;
+                sprite.setup(battler);
+                this._damages.push(sprite);
+                this.parent.addChild(sprite);;
+            }
+            battler.clearDamagePopup();
+            battler.clearResult();
+        }
+    };
+
+    //====================================================================
+    // compatability overrides
+    //====================================================================
+
+    // track intended repeats from before BattleEngineCore
+    if (DataManager.addActionEffects) {
+        var _addActionEffects = DataManager.addActionEffects;
+        DataManager.addActionEffects = function(obj, array) {
+            var initialRepeats = obj.repeats;
+            _addActionEffects.call(this, obj, array);
+            obj._srpgRepeats = initialRepeats - obj.repeats;
+        };
+    }
+
+    //====================================================================
+    // Config
+    //====================================================================
+    ConfigManager.mapBattle = false;
+
+    var _MB_ConfigManager_makeData = ConfigManager.makeData;
+    ConfigManager.makeData = function() {
+        var config = _MB_ConfigManager_makeData.call(this);
+        config.mapBattle = this.mapBattle;
+        return config;
+    };
+
+    var _MB_ConfigManager_applyData = ConfigManager.applyData;
+    ConfigManager.applyData = function(config) {
+        _MB_ConfigManager_applyData.call(this, config);
+        this.mapBattle = this.readFlag(config, 'mapBattle');
+    };
+
+    var _MB_Window_Options_addGeneralOptions = Window_Options.prototype.addGeneralOptions;
+    Window_Options.prototype.addGeneralOptions = function() {
+        _MB_Window_Options_addGeneralOptions.call(this);
+        if (_useMapBattle == 2) this.addCommand('マップバトル', 'mapBattle');
+    };
+
+    //====================================================================
+    // ●SRPG_AgiAttackPlus
+    //====================================================================
+    //====================================================================
+    // ●Game_Action
+    //====================================================================
     var _SRPG_AAP_Game_Action_speed = Game_Action.prototype.speed;
     Game_Action.prototype.speed = function() {
         if ($gameSystem.isSRPGMode() == true && _srpgUseAgiAttackPlus == 'true') {
@@ -7308,9 +7347,9 @@ Window_Options.prototype.addGeneralOptions = function() {
         }
     };
 
-//====================================================================
-// ●Game_Battler
-//====================================================================
+    //====================================================================
+    // ●Game_Battler
+    //====================================================================
     var _SRPG_AAP_Game_Battler_initMembers = Game_Battler.prototype.initMembers;
     Game_Battler.prototype.initMembers = function() {
         _SRPG_AAP_Game_Battler_initMembers.call(this);
@@ -7334,9 +7373,9 @@ Window_Options.prototype.addGeneralOptions = function() {
         }
     };
 
-//====================================================================
-// ●BattleManager
-//====================================================================
+    //====================================================================
+    // ●BattleManager
+    //====================================================================
     var _SRPG_AAP_BattleManager_initMembers = BattleManager.initMembers;
     BattleManager.initMembers = function() {
         _SRPG_AAP_BattleManager_initMembers.call(this);
@@ -7398,63 +7437,63 @@ Window_Options.prototype.addGeneralOptions = function() {
         }
     };
 
-//====================================================================
-// ●SRPG_YEP_BattleEngineCore
-//====================================================================
-//アクタースプライトの基準位置
-var _SRPG_YEP_Sprite_Actor_setActorHome = Sprite_Actor.prototype.setActorHome;
-Sprite_Actor.prototype.setActorHome = function(index) {
-	if (_AAPwithYEP_BattleEngineCore == 'true') {
-	    if ($gameSystem.isSRPGMode() == true) {
-	        this.setHome(Graphics.width - 216 - index * 240, Graphics.height / 2 + 48);
-	        this.moveToStartPosition();
-	    } else {
-	        _SRPG_YEP_Sprite_Actor_setActorHome.call(this, index);
-	    }
-	} else {
-	    _SRPG_YEP_Sprite_Actor_setActorHome.call(this, index);
-	}
-};
+    //====================================================================
+    // ●SRPG_YEP_BattleEngineCore
+    //====================================================================
+    //アクタースプライトの基準位置
+    var _SRPG_YEP_Sprite_Actor_setActorHome = Sprite_Actor.prototype.setActorHome;
+    Sprite_Actor.prototype.setActorHome = function(index) {
+        if (_AAPwithYEP_BattleEngineCore == 'true') {
+            if ($gameSystem.isSRPGMode() == true) {
+                this.setHome(Graphics.width - 216 - index * 240, Graphics.height / 2 + 48);
+                this.moveToStartPosition();
+            } else {
+                _SRPG_YEP_Sprite_Actor_setActorHome.call(this, index);
+            }
+        } else {
+            _SRPG_YEP_Sprite_Actor_setActorHome.call(this, index);
+        }
+    };
 
-BattleManager.actionCastAnimation = function() {
-  if (!$gameSystem.isSideView() && this._subject.isActor()) return true;
-  if (!this._action.isGuard() && this._action.isSkill()) {
-    if (this._action.item().castAnimation > 0) {
-      var ani = $dataAnimations[this._action.item().castAnimation]
-      this._logWindow.showAnimation(this._subject, [this._subject],
-        this._action.item().castAnimation);
-    }
-  }
-  return true;
-};
+    BattleManager.actionCastAnimation = function() {
+        if (!$gameSystem.isSideView() && this._subject.isActor()) return true;
+        if (!this._action.isGuard() && this._action.isSkill()) {
+            if (this._action.item().castAnimation > 0) {
+                var ani = $dataAnimations[this._action.item().castAnimation]
+                this._logWindow.showAnimation(this._subject, [this._subject],
+                    this._action.item().castAnimation);
+            }
+        }
+        return true;
+    };
 
-var _SRPG_YEP_BattleManager_invokeAction = BattleManager.invokeAction;
-BattleManager.invokeAction = function(subject, target) {
-  if (_AAPwithYEP_BattleEngineCore == 'true') {
-	  if (!eval(Yanfly.Param.BECOptSpeed)) this._logWindow.push('pushBaseLine');
-	  var normal = true;
-	  if (Math.random() < this._action.itemMrf(target)) {
-	    this.invokeMagicReflection(subject, target);
-	  } else if (Math.random() < this._action.itemCnt(target)) {
-	    if ($gameSystem.isSRPGMode() == true) {
-	      var attackSkill = $dataSkills[target.attackSkillId()]
-	      if (target.canUse(attackSkill) == true) {
-	          this.invokeCounterAttack(subject, target);
-	      } else {
-	          this.invokeNormalAction(subject, target);
-	      }
-	    } else {
-	      this.invokeCounterAttack(subject, target);
-	    }
-	  } else {
-	    this.invokeNormalAction(subject, target);
-	  }
-	  if (subject) subject.setLastTarget(target);
-	  if (!eval(Yanfly.Param.BECOptSpeed)) this._logWindow.push('popBaseLine');
-	  if ($gameSystem.isSRPGMode() == true) this.refreshStatus();
-  } else {
-	_SRPG_YEP_BattleManager_invokeAction.call(this, subject, target);
-  }
-};
+    var _SRPG_YEP_BattleManager_invokeAction = BattleManager.invokeAction;
+    BattleManager.invokeAction = function(subject, target) {
+        if (_AAPwithYEP_BattleEngineCore == 'true') {
+            if (!eval(Yanfly.Param.BECOptSpeed)) this._logWindow.push('pushBaseLine');
+            var normal = true;
+            if (Math.random() < this._action.itemMrf(target)) {
+                this.invokeMagicReflection(subject, target);
+            } else if (Math.random() < this._action.itemCnt(target)) {
+                if ($gameSystem.isSRPGMode() == true) {
+                    var attackSkill = $dataSkills[target.attackSkillId()]
+                    if (target.canUse(attackSkill) == true) {
+                        this.invokeCounterAttack(subject, target);
+                    } else {
+                        this.invokeNormalAction(subject, target);
+                    }
+                } else {
+                    this.invokeCounterAttack(subject, target);
+                }
+            } else {
+                this.invokeNormalAction(subject, target);
+            }
+            if (subject) subject.setLastTarget(target);
+            if (!eval(Yanfly.Param.BECOptSpeed)) this._logWindow.push('popBaseLine');
+            if ($gameSystem.isSRPGMode() == true) this.refreshStatus();
+        } else {
+            _SRPG_YEP_BattleManager_invokeAction.call(this, subject, target);
+        }
+    };
 
 })();
