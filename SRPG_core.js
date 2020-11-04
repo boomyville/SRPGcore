@@ -2,7 +2,7 @@
 // SRPG_core.js -SRPGコンバータMV-
 // バージョン   : 1.32 + Q
 // 最終更新日   : 2020/10/8
-// 制作         : 神鏡学斗, Dr. Q, Dopan, Boomy
+// 制作         : 神鏡学斗, Dr. Q
 // 配布元       : http://www.lemon-slice.net/
 // 制作協力 　　: アンチョビ様　
 //                エビ様　http://www.zf.em-net.ne.jp/~ebi-games/
